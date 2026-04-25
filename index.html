@@ -272,6 +272,20 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ── RESPONSIVE ── */
+  .comment-item {
+    background: var(--surface2); border-radius: 7px; padding: 7px 10px;
+    margin-bottom: 5px; font-size: 12px; color: var(--text); position: relative;
+    border-left: 2.5px solid var(--border2);
+  }
+  .comment-item .c-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .comment-item .c-del { position: absolute; top: 6px; right: 8px; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 13px; padding: 0; }
+  .comment-item .c-del:hover { color: var(--red); }
+  .detail-comments { margin-top: 4px; }
+  .detail-comment-item { background: var(--surface2); border-radius: 7px; padding: 7px 10px; margin-bottom: 5px; font-size: 12px; border-left: 2.5px solid #0f3d6e22; }
+  .detail-comment-item .c-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .btn-ir-mapa { display:flex; align-items:center; gap:5px; background:none; border:0.5px solid var(--border2); border-radius:7px; padding:5px 10px; font-size:11px; cursor:pointer; color:var(--accent); font-family:var(--font); margin-left:auto; }
+  .btn-ir-mapa:hover { background: var(--surface2); }
+
   .poly-tooltip {
     background: rgba(15,61,110,0.90) !important; color: #fff !important;
     border: none !important; border-radius: 8px !important;
@@ -423,6 +437,14 @@
         <label class="f-label">Notas</label>
         <textarea class="f-input" id="f-notas" placeholder="Observaciones, estado legal, acceso..."></textarea>
       </div>
+      <div class="form-full" id="comments-section" style="display:none">
+        <label class="f-label">Comentarios</label>
+        <div id="comments-list"></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input class="f-input" id="f-nuevo-comentario" type="text" placeholder="Agregar comentario..." style="flex:1" />
+          <button type="button" id="btn-add-comment" style="padding:7px 12px;background:#0f3d6e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap">+ Agregar</button>
+        </div>
+      </div>
     </div>
     <div class="form-actions">
       <button class="btn-primary" id="btn-guardar">Guardar en SharePoint</button>
@@ -488,6 +510,7 @@ let drawLine = null;
 let drawMarkers = [];
 let pendingCoords = null;
 let editingId = null;
+let commentsList = []; // [{text, date}]
 let selectedId = null;
 
 // ══════════════════════════════════════════
@@ -787,16 +810,40 @@ function showDetail(id) {
 
   const s = ESTADO_STYLE[t.estado] || ESTADO_STYLE.posible;
   document.getElementById('detail-name').textContent = t.nombre;
+  // Parse notas and comments
+  const rawNotas = t.notas || '';
+  const sepIdx = rawNotas.indexOf('|||');
+  const displayNotas = sepIdx >= 0 ? rawNotas.substring(0, sepIdx) : rawNotas;
+  let displayComments = [];
+  if (sepIdx >= 0) { try { displayComments = JSON.parse(rawNotas.substring(sepIdx + 3)); } catch {} }
+
+  const commentsHTML = displayComments.length > 0
+    ? `<div class="d-row"><div class="d-label">Comentarios (${displayComments.length})</div>
+        <div class="detail-comments">${displayComments.map(c =>
+          `<div class="detail-comment-item"><div>${c.text}</div><div class="c-meta">${c.date}</div></div>`
+        ).join('')}</div></div>`
+    : '';
+
   document.getElementById('detail-body').innerHTML = `
-    <div class="d-row"><div class="d-label">Estado</div>
-      <div class="d-value"><span style="background:${s.bg};color:${s.text};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:500">${ESTADO_LABEL[t.estado]}</span></div></div>
+    <div style="display:flex;align-items:center;margin-bottom:12px">
+      <span style="background:${s.bg};color:${s.text};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:500">${ESTADO_LABEL[t.estado]}</span>
+      ${t.coords ? `<button class="btn-ir-mapa" id="btn-fly-${id}">📍 Ver en mapa</button>` : ''}
+    </div>
     ${t.area !== '' ? `<div class="d-row"><div class="d-label">Área</div><div class="d-value">${Number(t.area).toLocaleString()} m²</div></div>` : ''}
     ${t.precio    ? `<div class="d-row"><div class="d-label">Precio</div><div class="d-value">L. ${t.precio}</div></div>` : ''}
     ${t.propietario ? `<div class="d-row"><div class="d-label">Propietario</div><div class="d-value">${t.propietario}</div></div>` : ''}
     ${t.fecha     ? `<div class="d-row"><div class="d-label">Fecha registro</div><div class="d-value">${t.fecha}</div></div>` : ''}
-    ${t.notas     ? `<div class="d-row"><div class="d-label">Notas</div><div class="d-value">${t.notas}</div></div>` : ''}
-    <div class="d-row"><div class="d-label">Coordenadas (JSON)</div><div class="d-coords">${t.coordsRaw || 'Sin coordenadas'}</div></div>
+    ${displayNotas ? `<div class="d-row"><div class="d-label">Notas</div><div class="d-value">${displayNotas}</div></div>` : ''}
+    ${commentsHTML}
   `;
+  const flyBtn = document.getElementById('btn-fly-' + id);
+  if (flyBtn) flyBtn.onclick = () => {
+    if (layers[id]) {
+      map.flyToBounds(layers[id].getBounds(), { padding: [60, 60], duration: 0.8 });
+      layers[id].setStyle({ fillOpacity: 0.65, weight: 3.5 });
+      setTimeout(() => { if(layers[id]) layers[id].setStyle({ fillOpacity: 0.35, weight: 2.5 }); }, 1800);
+    } else { toast('Este terreno no tiene polígono en el mapa', 'error'); }
+  };
   document.getElementById('detail-delete').onclick = () => deleteTerreno(id);
   document.getElementById('detail-edit').onclick = () => openEditForm(id);
   document.getElementById('detail-panel').classList.add('open');
@@ -825,6 +872,9 @@ function openNewForm() {
   document.getElementById('f-propietario').value = '';
   document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
   document.getElementById('f-notas').value = '';
+  commentsList = [];
+  renderCommentsList();
+  document.getElementById('comments-section').style.display = 'block';
   document.getElementById('form-overlay').classList.add('open');
 }
 
@@ -841,10 +891,35 @@ function openEditForm(id) {
   document.getElementById('f-propietario').value = t.propietario || '';
   document.getElementById('f-fecha').value = t.fecha || '';
   document.getElementById('f-notas').value = t.notas || '';
+  // Parse existing comments from Notas field (format: NOTAS|||[{text,date}])
+  const raw = t.notas || '';
+  const sep = raw.indexOf('|||');
+  if (sep >= 0) {
+    document.getElementById('f-notas').value = raw.substring(0, sep);
+    try { commentsList = JSON.parse(raw.substring(sep + 3)); } catch { commentsList = []; }
+  } else {
+    document.getElementById('f-notas').value = raw;
+    commentsList = [];
+  }
+  renderCommentsList();
+  document.getElementById('comments-section').style.display = 'block';
   document.getElementById('detail-panel').classList.remove('open');
   selectedId = null;
   document.getElementById('form-overlay').classList.add('open');
   setTimeout(() => document.getElementById('f-nombre').focus(), 100);
+}
+
+function renderCommentsList() {
+  const el = document.getElementById('comments-list');
+  if (!el) return;
+  el.innerHTML = '';
+  commentsList.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'comment-item';
+    div.innerHTML = `<div>${c.text}</div><div class="c-meta">${c.date}</div><button class="c-del" data-i="${i}">✕</button>`;
+    div.querySelector('.c-del').onclick = () => { commentsList.splice(i, 1); renderCommentsList(); };
+    el.appendChild(div);
+  });
 }
 
 function closeForm(clearCoords = false) {
@@ -944,6 +1019,22 @@ document.getElementById('btn-logout').onclick = () => {
 };
 document.getElementById('btn-draw').onclick = startDraw;
 document.getElementById('btn-save-poly').onclick = savePolygon;
+
+document.getElementById('btn-add-comment').onclick = () => {
+  const input = document.getElementById('f-nuevo-comentario');
+  const text = input.value.trim();
+  if (!text) return;
+  const now = new Date();
+  const date = now.toLocaleDateString('es-HN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  commentsList.push({ text, date });
+  renderCommentsList();
+  input.value = '';
+  document.getElementById('comments-section').style.display = 'block';
+};
+
+document.getElementById('f-nuevo-comentario').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-add-comment').click();
+});
 document.getElementById('btn-cancel-draw').onclick = cancelDraw;
 document.getElementById('btn-new').onclick = openNewForm;
 document.getElementById('detail-back').onclick = closeDetail;
@@ -968,6 +1059,10 @@ document.getElementById('btn-guardar').onclick = async () => {
   }
   if (!pendingCoords) { toast('No hay polígono dibujado. Dibuja primero en el mapa.', 'error'); return; }
   console.log('Guardando con coords:', pendingCoords ? pendingCoords.length + ' puntos' : 'NULL');
+  const notasBase = document.getElementById('f-notas').value;
+  const notasFull = commentsList.length > 0
+    ? notasBase + '|||' + JSON.stringify(commentsList)
+    : notasBase;
   const fields = {
     nombre,
     estado:      document.getElementById('f-estado').value,
@@ -975,7 +1070,7 @@ document.getElementById('btn-guardar').onclick = async () => {
     precio:      document.getElementById('f-precio').value,
     propietario: document.getElementById('f-propietario').value,
     fecha:       document.getElementById('f-fecha').value,
-    notas:       document.getElementById('f-notas').value,
+    notas:       notasFull,
   };
   const coordsToSave = pendingCoords;
   closeForm(false);
