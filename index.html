@@ -334,7 +334,7 @@
 <div id="topbar" style="display:none">
   <div>
     <div class="app-name">Mapas Desarrollos</div>
-    <div class="app-sub">Celaque · Gestión de terrenos · v5</div>
+    <div class="app-sub">Celaque · Gestión de terrenos · v6</div>
   </div>
   <span id="sync-indicator">⟳ Sincronizando...</span>
   <div id="user-chip">
@@ -442,14 +442,7 @@
         <label class="f-label">Notas</label>
         <textarea class="f-input" id="f-notas" placeholder="Observaciones, estado legal, acceso..."></textarea>
       </div>
-      <div class="form-full" id="comments-section" style="display:none">
-        <label class="f-label">Comentarios</label>
-        <div id="comments-list"></div>
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <input class="f-input" id="f-nuevo-comentario" type="text" placeholder="Agregar comentario..." style="flex:1" />
-          <button type="button" id="btn-add-comment" style="padding:7px 12px;background:#0f3d6e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap">+ Agregar</button>
-        </div>
-      </div>
+
     </div>
     <div class="form-actions">
       <button class="btn-primary" id="btn-guardar">Guardar en SharePoint</button>
@@ -515,7 +508,6 @@ let drawLine = null;
 let drawMarkers = [];
 let pendingCoords = null;
 let editingId = null;
-let commentsList = []; // [{text, date}]
 let selectedId = null;
 
 // ══════════════════════════════════════════
@@ -645,7 +637,7 @@ async function loadTerrenos() {
   try {
     await getSiteAndList();
     const data = await graphGet(
-      `/sites/${siteId}/lists/${listId}/items?expand=fields($select=Title,Nombre,Estado,Area,Precio,Propietario,Fecha,Notas,Coordenadas,id)&$top=500`
+      `/sites/${siteId}/lists/${listId}/items?expand=fields($select=Title,Nombre,Estado,Area,Precio,Propietario,Fecha,Notas,Coordenadas,Usuario,id)&$top=500`
     );
     terrenos = data.value.map(item => {
       const f = item.fields;
@@ -678,7 +670,7 @@ async function loadTerrenos() {
   } finally { showLoading(false); }
 }
 
-async function saveTerreno(fields, coords) {
+async function saveTerreno(fields, coords, forcedId = null) {
   showSync(true);
   try {
     await getSiteAndList();
@@ -694,19 +686,23 @@ async function saveTerreno(fields, coords) {
     bodyFields[col('Fecha')]       = fields.fecha ? fields.fecha + 'T00:00:00Z' : null;
     bodyFields[col('Notas')]       = fields.notas || null;
     bodyFields[col('Coordenadas')] = coordStr;
+    if (currentUser) {
+      const userName = currentUser.name || currentUser.username || '';
+      bodyFields[col('Usuario')] = userName;
+    }
     console.log('Saving fields:', JSON.stringify(bodyFields));
     const body = { fields: bodyFields };
     let item;
-    if (editingId) {
-      item = await graphPatch(`/sites/${siteId}/lists/${listId}/items/${editingId}`, body);
-      const idx = terrenos.findIndex(t => t.id === editingId);
+    if (forcedId) {
+      item = await graphPatch(`/sites/${siteId}/lists/${listId}/items/${forcedId}`, body);
+      const idx = terrenos.findIndex(t => t.id === forcedId);
       if (idx >= 0) {
-        terrenos[idx] = { ...terrenos[idx], ...fields, coords, coordsRaw: JSON.stringify(coords) };
+        terrenos[idx] = { ...terrenos[idx], ...fields, coords, coordsRaw: JSON.stringify(coords || []) };
       }
       toast('Terreno actualizado ✓', 'success');
     } else {
       item = await graphPost(`/sites/${siteId}/lists/${listId}/items`, body);
-      terrenos.push({ id: item.id, ...fields, coords, coordsRaw: JSON.stringify(coords) });
+      terrenos.push({ id: item.id, ...fields, coords, coordsRaw: JSON.stringify(coords || []) });
       toast('Terreno guardado ✓', 'success');
     }
     renderAll();
@@ -815,20 +811,7 @@ function showDetail(id) {
 
   const s = ESTADO_STYLE[t.estado] || ESTADO_STYLE.posible;
   document.getElementById('detail-name').textContent = t.nombre;
-  // Parse notas and comments
-  const rawNotas = t.notas || '';
-  const sepIdx = rawNotas.indexOf('|||');
-  const displayNotas = sepIdx >= 0 ? rawNotas.substring(0, sepIdx) : rawNotas;
-  let displayComments = [];
-  if (sepIdx >= 0) { try { displayComments = JSON.parse(rawNotas.substring(sepIdx + 3)); } catch {} }
-
-  const commentsHTML = displayComments.length > 0
-    ? `<div class="d-row"><div class="d-label">Comentarios (${displayComments.length})</div>
-        <div class="detail-comments">${displayComments.map(c =>
-          `<div class="detail-comment-item"><div>${c.text}</div><div class="c-meta">${c.date}</div></div>`
-        ).join('')}</div></div>`
-    : '';
-
+  const displayNotas = t.notas || '';
   document.getElementById('detail-body').innerHTML = `
     <div style="display:flex;align-items:center;margin-bottom:12px">
       <span style="background:${s.bg};color:${s.text};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:500">${ESTADO_LABEL[t.estado]}</span>
@@ -838,8 +821,7 @@ function showDetail(id) {
     ${t.precio    ? `<div class="d-row"><div class="d-label">Precio</div><div class="d-value">L. ${t.precio}</div></div>` : ''}
     ${t.propietario ? `<div class="d-row"><div class="d-label">Propietario</div><div class="d-value">${t.propietario}</div></div>` : ''}
     ${t.fecha     ? `<div class="d-row"><div class="d-label">Fecha registro</div><div class="d-value">${t.fecha}</div></div>` : ''}
-    ${displayNotas ? `<div class="d-row"><div class="d-label">Notas</div><div class="d-value">${displayNotas}</div></div>` : ''}
-    ${commentsHTML}
+    ${t.notas ? `<div class="d-row"><div class="d-label">Notas</div><div class="d-value">${t.notas}</div></div>` : ''}
   `;
   const flyBtn = document.getElementById('btn-fly-' + id);
   if (flyBtn) flyBtn.onclick = () => {
@@ -877,9 +859,6 @@ function openNewForm() {
   document.getElementById('f-propietario').value = '';
   document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
   document.getElementById('f-notas').value = '';
-  commentsList = [];
-  renderCommentsList();
-  document.getElementById('comments-section').style.display = 'block';
   document.getElementById('form-overlay').classList.add('open');
 }
 
@@ -896,35 +875,13 @@ function openEditForm(id) {
   document.getElementById('f-propietario').value = t.propietario || '';
   document.getElementById('f-fecha').value = t.fecha || '';
   document.getElementById('f-notas').value = t.notas || '';
-  // Parse existing comments from Notas field (format: NOTAS|||[{text,date}])
-  const raw = t.notas || '';
-  const sep = raw.indexOf('|||');
-  if (sep >= 0) {
-    document.getElementById('f-notas').value = raw.substring(0, sep);
-    try { commentsList = JSON.parse(raw.substring(sep + 3)); } catch { commentsList = []; }
-  } else {
+ else {
     document.getElementById('f-notas').value = raw;
-    commentsList = [];
-  }
-  renderCommentsList();
-  document.getElementById('comments-section').style.display = 'block';
+    }
   document.getElementById('detail-panel').classList.remove('open');
   selectedId = null;
   document.getElementById('form-overlay').classList.add('open');
   setTimeout(() => document.getElementById('f-nombre').focus(), 100);
-}
-
-function renderCommentsList() {
-  const el = document.getElementById('comments-list');
-  if (!el) return;
-  el.innerHTML = '';
-  commentsList.forEach((c, i) => {
-    const div = document.createElement('div');
-    div.className = 'comment-item';
-    div.innerHTML = `<div>${c.text}</div><div class="c-meta">${c.date}</div><button class="c-del" data-i="${i}">✕</button>`;
-    div.querySelector('.c-del').onclick = () => { commentsList.splice(i, 1); renderCommentsList(); };
-    el.appendChild(div);
-  });
 }
 
 function closeForm(clearCoords = false) {
@@ -1025,21 +982,7 @@ document.getElementById('btn-logout').onclick = () => {
 document.getElementById('btn-draw').onclick = startDraw;
 document.getElementById('btn-save-poly').onclick = savePolygon;
 
-document.getElementById('btn-add-comment').onclick = () => {
-  const input = document.getElementById('f-nuevo-comentario');
-  const text = input.value.trim();
-  if (!text) return;
-  const now = new Date();
-  const date = now.toLocaleDateString('es-HN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-  commentsList.push({ text, date });
-  renderCommentsList();
-  input.value = '';
-  document.getElementById('comments-section').style.display = 'block';
-};
 
-document.getElementById('f-nuevo-comentario').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('btn-add-comment').click();
-});
 document.getElementById('btn-cancel-draw').onclick = cancelDraw;
 document.getElementById('btn-new').onclick = openNewForm;
 document.getElementById('detail-back').onclick = closeDetail;
@@ -1064,10 +1007,6 @@ document.getElementById('btn-guardar').onclick = async () => {
   }
   if (!pendingCoords) { toast('No hay polígono dibujado. Dibuja primero en el mapa.', 'error'); return; }
   console.log('Guardando con coords:', pendingCoords ? pendingCoords.length + ' puntos' : 'NULL');
-  const notasBase = document.getElementById('f-notas').value;
-  const notasFull = commentsList.length > 0
-    ? notasBase + '|||' + JSON.stringify(commentsList)
-    : notasBase;
   const fields = {
     nombre,
     estado:      document.getElementById('f-estado').value,
@@ -1075,12 +1014,13 @@ document.getElementById('btn-guardar').onclick = async () => {
     precio:      document.getElementById('f-precio').value,
     propietario: document.getElementById('f-propietario').value,
     fecha:       document.getElementById('f-fecha').value,
-    notas:       notasFull,
+    notas:       document.getElementById('f-notas').value,
   };
   const coordsToSave = pendingCoords;
+  const idToSave = editingId; // capture BEFORE closeForm resets it
   closeForm(false);
   if (layers['__preview__']) { map.removeLayer(layers['__preview__']); delete layers['__preview__']; }
-  await saveTerreno(fields, coordsToSave);
+  await saveTerreno(fields, coordsToSave, idToSave);
   pendingCoords = null;
 };
 
