@@ -152,8 +152,8 @@
   #map { width: 100%; height: 100%; }
 
   #map-tools {
-    position: absolute; top: 12px; left: 12px; z-index: 400;
-    display: flex; flex-direction: column; gap: 5px;
+    position: absolute; top: 12px; right: 12px; z-index: 400;
+    display: flex; flex-direction: column; gap: 5px; align-items: flex-end;
   }
   .map-btn {
     background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius);
@@ -364,9 +364,10 @@
     <div id="map"></div>
     <div id="map-tools">
       <button class="map-btn" id="btn-draw">✏ Dibujar polígono</button>
-      <button class="map-btn danger" id="btn-cancel-draw" style="display:none">✕ Cancelar dibujo</button>
+      <button class="map-btn active" id="btn-save-poly" style="display:none">✔ Guardar polígono</button>
+      <button class="map-btn danger" id="btn-cancel-draw" style="display:none">✕ Cancelar</button>
     </div>
-    <div id="draw-hint">Haz clic para agregar puntos · Doble clic para cerrar</div>
+    <div id="draw-hint">Haz clic para agregar puntos · Mínimo 3 puntos</div>
     <div id="legend">
       <div class="leg-row"><div class="leg-sq" style="background:#388e3c"></div>Comprado</div>
       <div class="leg-row"><div class="leg-sq" style="background:#f9a825"></div>Posible compra</div>
@@ -487,8 +488,8 @@ let map;
 function initMap() {
   map = L.map('map', { zoomControl: true, doubleClickZoom: false })
           .setView([14.093, -87.202], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap', maxZoom: 19
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 19
   }).addTo(map);
 
   map.on('click', onMapClick);
@@ -817,6 +818,7 @@ function startDraw() {
   if (drawLine) { map.removeLayer(drawLine); drawLine = null; }
   drawMarkers.forEach(m => map.removeLayer(m)); drawMarkers = [];
   document.getElementById('btn-draw').style.display = 'none';
+  document.getElementById('btn-save-poly').style.display = 'none';
   document.getElementById('btn-cancel-draw').style.display = 'block';
   document.getElementById('draw-hint').classList.add('show');
   map.getContainer().style.cursor = 'crosshair';
@@ -828,6 +830,7 @@ function cancelDraw() {
   drawMarkers.forEach(m => map.removeLayer(m)); drawMarkers = [];
   pendingCoords = null;
   document.getElementById('btn-draw').style.display = 'block';
+  document.getElementById('btn-save-poly').style.display = 'none';
   document.getElementById('btn-cancel-draw').style.display = 'none';
   document.getElementById('draw-hint').classList.remove('show');
   map.getContainer().style.cursor = '';
@@ -842,15 +845,29 @@ function onMapClick(e) {
   if (drawPoints.length > 1) {
     drawLine = L.polyline(drawPoints, { color: '#0f3d6e', weight: 2, dashArray: '6,4' }).addTo(map);
   }
+  if (drawPoints.length >= 3) {
+    document.getElementById('btn-save-poly').style.display = 'block';
+  }
 }
 
 function onMapDblClick(e) {
-  if (!drawMode || drawPoints.length < 3) return;
-  L.DomEvent.stop(e);
+  if (drawMode) L.DomEvent.stop(e);
+}
+
+function savePolygon() {
+  if (drawPoints.length < 3) { toast('Necesitas al menos 3 puntos', 'error'); return; }
   pendingCoords = [...drawPoints];
-  cancelDraw();
+  if (drawLine) { map.removeLayer(drawLine); drawLine = null; }
+  drawMarkers.forEach(m => map.removeLayer(m)); drawMarkers = [];
+  drawMode = false;
+  document.getElementById('btn-draw').style.display = 'block';
+  document.getElementById('btn-save-poly').style.display = 'none';
+  document.getElementById('btn-cancel-draw').style.display = 'none';
+  document.getElementById('draw-hint').classList.remove('show');
+  map.getContainer().style.cursor = '';
   // Draw preview polygon
   const s = ESTADO_STYLE.posible;
+  if (layers['__preview__']) map.removeLayer(layers['__preview__']);
   const preview = L.polygon(pendingCoords, { color: s.stroke, fillColor: s.fill, fillOpacity: 0.3, weight: 2, dashArray: '5,5' }).addTo(map);
   layers['__preview__'] = preview;
   openNewForm();
@@ -879,6 +896,7 @@ document.getElementById('btn-logout').onclick = () => {
   msalInstance.logoutRedirect({ postLogoutRedirectUri: CONFIG.redirectUri });
 };
 document.getElementById('btn-draw').onclick = startDraw;
+document.getElementById('btn-save-poly').onclick = savePolygon;
 document.getElementById('btn-cancel-draw').onclick = cancelDraw;
 document.getElementById('btn-new').onclick = openNewForm;
 document.getElementById('detail-back').onclick = closeDetail;
