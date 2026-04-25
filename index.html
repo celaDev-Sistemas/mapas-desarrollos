@@ -875,9 +875,6 @@ function openEditForm(id) {
   document.getElementById('f-propietario').value = t.propietario || '';
   document.getElementById('f-fecha').value = t.fecha || '';
   document.getElementById('f-notas').value = t.notas || '';
- else {
-    document.getElementById('f-notas').value = raw;
-    }
   document.getElementById('detail-panel').classList.remove('open');
   selectedId = null;
   document.getElementById('form-overlay').classList.add('open');
