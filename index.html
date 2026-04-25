@@ -192,27 +192,29 @@
   /* ── DETAIL PANEL ── */
   #detail-panel {
     position: absolute; inset: 0; background: var(--surface); z-index: 200;
-    display: none; flex-direction: column;
+    display: none; flex-direction: column; overflow: hidden;
   }
   #detail-panel.open { display: flex; }
   #detail-head {
     display: flex; align-items: center; gap: 8px;
-    padding: 12px 14px; border-bottom: 0.5px solid var(--border);
+    padding: 10px 12px; border-bottom: 0.5px solid var(--border); flex-shrink: 0;
   }
-  .btn-back { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); padding: 0 4px; line-height: 1; }
+  .btn-back { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--muted); padding: 0 4px; line-height: 1; flex-shrink: 0; }
   .btn-back:hover { color: var(--text); }
-  #detail-name { font-size: 14px; font-weight: 600; flex: 1; }
+  #detail-name { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .btn-edit {
-    background: none; border: 0.5px solid var(--border2); border-radius: 7px;
-    padding: 5px 10px; font-size: 11px; cursor: pointer; color: var(--accent);
-    font-family: var(--font);
+    background: #0f3d6e; border: none; border-radius: 7px; flex-shrink: 0;
+    padding: 5px 12px; font-size: 11px; cursor: pointer; color: #fff;
+    font-family: var(--font); font-weight: 500;
   }
-  #detail-body { flex: 1; overflow-y: auto; padding: 16px; }
-  .d-row { margin-bottom: 14px; }
-  .d-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 4px; }
+  .btn-edit:hover { background: #1a5c96; }
+  #detail-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+  #detail-body { padding: 12px 14px; flex: 1; }
+  .d-row { margin-bottom: 12px; }
+  .d-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 3px; }
   .d-value { font-size: 13px; color: var(--text); line-height: 1.5; }
   .d-coords { font-family: var(--mono); font-size: 10px; color: var(--muted); background: var(--surface2); padding: 6px 8px; border-radius: 6px; word-break: break-all; }
-  .btn-delete { margin: 4px 16px 16px; padding: 9px; background: none; border: 0.5px solid var(--red-border); border-radius: var(--radius); color: var(--red); font-size: 13px; font-family: var(--font); cursor: pointer; width: calc(100% - 32px); }
+  .btn-delete { margin: 0 14px 14px; padding: 9px; background: none; border: 0.5px solid var(--red-border); border-radius: var(--radius); color: var(--red); font-size: 13px; font-family: var(--font); cursor: pointer; width: calc(100% - 28px); flex-shrink: 0; }
   .btn-delete:hover { background: var(--red-bg); }
 
   /* ── FORM PANEL ── */
@@ -331,7 +333,7 @@
 <div id="topbar" style="display:none">
   <div>
     <div class="app-name">Mapas Desarrollos</div>
-    <div class="app-sub">Celaque · Gestión de terrenos</div>
+    <div class="app-sub">Celaque · Gestión de terrenos · v4</div>
   </div>
   <span id="sync-indicator">⟳ Sincronizando...</span>
   <div id="user-chip">
@@ -375,8 +377,10 @@
           <span id="detail-name"></span>
           <button class="btn-edit" id="detail-edit">Editar</button>
         </div>
-        <div id="detail-body"></div>
-        <button class="btn-delete" id="detail-delete">Eliminar terreno</button>
+        <div id="detail-scroll">
+          <div id="detail-body"></div>
+          <button class="btn-delete" id="detail-delete">Eliminar terreno</button>
+        </div>
       </div>
       <button id="btn-new">＋ Nuevo terreno</button>
     </div>
