@@ -586,6 +586,9 @@ async function graphDelete(url) {
   if (!r.ok) throw new Error(`Graph error ${r.status}`);
 }
 
+// Maps display name -> internal name for each column
+let colMap = {};
+
 async function getSiteAndList() {
   if (siteId && listId) return;
   const hostname = 'celaque1.sharepoint.com';
@@ -595,6 +598,15 @@ async function getSiteAndList() {
   const lists = await graphGet(`/sites/${siteId}/lists?$filter=displayName eq '${CONFIG.listName}'`);
   if (!lists.value.length) throw new Error('Lista no encontrada en SharePoint');
   listId = lists.value[0].id;
+
+  // Discover internal column names
+  const cols = await graphGet(`/sites/${siteId}/lists/${listId}/columns`);
+  cols.value.forEach(c => { colMap[c.displayName] = c.name; });
+  console.log('Column map:', colMap);
+}
+
+function col(displayName) {
+  return colMap[displayName] || displayName;
 }
 
 // ══════════════════════════════════════════
@@ -608,20 +620,23 @@ async function loadTerrenos() {
       `/sites/${siteId}/lists/${listId}/items?expand=fields&$top=500`
     );
     terrenos = data.value.map(item => {
-      const coordsRaw = item.fields.Coordenadas || '';
+      const f = item.fields;
+      console.log('Item fields:', JSON.stringify(f));
+      // Try both display name and internal name for Coordenadas
+      const coordsRaw = f[col('Coordenadas')] || f['Coordenadas'] || f['coordenadas'] || '';
       let coords = null;
-      if (coordsRaw && coordsRaw !== 'null') {
-        try { coords = JSON.parse(coordsRaw); } catch(e) { coords = null; }
+      if (coordsRaw && coordsRaw !== 'null' && coordsRaw.trim() !== '') {
+        try { coords = JSON.parse(coordsRaw); } catch(e) { console.warn('Coords parse error:', e, coordsRaw); }
       }
       return {
         id:          item.id,
-        nombre:      item.fields.Nombre      || item.fields.Title || '(sin nombre)',
-        estado:      (item.fields.Estado     || 'posible').toLowerCase(),
-        area:        item.fields.Area        != null ? item.fields.Area : '',
-        precio:      item.fields.Precio != null ? item.fields.Precio.toString() : '',
-        propietario: item.fields.Propietario || '',
-        fecha:       item.fields.Fecha       ? item.fields.Fecha.split('T')[0] : '',
-        notas:       item.fields.Notas       || '',
+        nombre:      f[col('Nombre')]      || f['Nombre']      || f.Title || '(sin nombre)',
+        estado:      (f[col('Estado')]     || f['Estado']      || 'posible').toLowerCase(),
+        area:        f[col('Area')]        != null ? f[col('Area')]        : (f['Area'] != null ? f['Area'] : ''),
+        precio:      f[col('Precio')]      != null ? f[col('Precio')].toString() : (f['Precio'] != null ? f['Precio'].toString() : ''),
+        propietario: f[col('Propietario')] || f['Propietario'] || '',
+        fecha:       (f[col('Fecha')]      || f['Fecha'])      ? (f[col('Fecha')] || f['Fecha']).split('T')[0] : '',
+        notas:       f[col('Notas')]       || f['Notas']       || '',
         coordsRaw,
         coords,
       };
@@ -639,19 +654,19 @@ async function saveTerreno(fields, coords) {
   try {
     await getSiteAndList();
     const coordStr = coords ? JSON.stringify(coords) : '';
-    const body = {
-      fields: {
-        Title:       fields.nombre,
-        Nombre:      fields.nombre,
-        Estado:      fields.estado,
-        Area:        fields.area ? parseInt(fields.area) : null,
-        Precio:      fields.precio,
-        Propietario: fields.propietario,
-        Fecha:       fields.fecha ? fields.fecha + 'T00:00:00Z' : null,
-        Notas:       fields.notas,
-        Coordenadas: coordStr,
-      }
+    const bodyFields = {
+      Title: fields.nombre,
     };
+    bodyFields[col('Nombre')]      = fields.nombre;
+    bodyFields[col('Estado')]      = fields.estado;
+    bodyFields[col('Area')]        = fields.area ? parseInt(fields.area) : null;
+    bodyFields[col('Precio')]      = fields.precio || null;
+    bodyFields[col('Propietario')] = fields.propietario || null;
+    bodyFields[col('Fecha')]       = fields.fecha ? fields.fecha + 'T00:00:00Z' : null;
+    bodyFields[col('Notas')]       = fields.notas || null;
+    bodyFields[col('Coordenadas')] = coordStr;
+    console.log('Saving fields:', JSON.stringify(bodyFields));
+    const body = { fields: bodyFields };
     let item;
     if (editingId) {
       item = await graphPatch(`/sites/${siteId}/lists/${listId}/items/${editingId}`, body);
@@ -826,7 +841,9 @@ function openEditForm(id) {
   document.getElementById('f-fecha').value = t.fecha || '';
   document.getElementById('f-notas').value = t.notas || '';
   document.getElementById('detail-panel').classList.remove('open');
+  selectedId = null;
   document.getElementById('form-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-nombre').focus(), 100);
 }
 
 function closeForm() {
@@ -940,7 +957,11 @@ document.querySelectorAll('.filter-pill').forEach(btn => {
 document.getElementById('btn-guardar').onclick = async () => {
   const nombre = document.getElementById('f-nombre').value.trim();
   if (!nombre) { toast('El nombre es obligatorio', 'error'); return; }
-  if (!pendingCoords) { toast('No hay polígono definido', 'error'); return; }
+  if (!pendingCoords && !editingId) { toast('No hay polígono definido', 'error'); return; }
+  if (!pendingCoords && editingId) {
+    const existing = terrenos.find(t => t.id === editingId);
+    if (existing) pendingCoords = existing.coords;
+  }
   const fields = {
     nombre,
     estado:      document.getElementById('f-estado').value,
