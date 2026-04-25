@@ -617,11 +617,12 @@ async function loadTerrenos() {
   try {
     await getSiteAndList();
     const data = await graphGet(
-      `/sites/${siteId}/lists/${listId}/items?expand=fields&$top=500`
+      `/sites/${siteId}/lists/${listId}/items?expand=fields($select=Title,Nombre,Estado,Area,Precio,Propietario,Fecha,Notas,Coordenadas,id)&$top=500`
     );
     terrenos = data.value.map(item => {
       const f = item.fields;
-      console.log('Item fields:', JSON.stringify(f));
+      console.log('Item fields keys:', Object.keys(f).join(', '));
+      console.log('Coordenadas value:', f['Coordenadas'], '| col mapped:', f[col('Coordenadas')]);
       // Try both display name and internal name for Coordenadas
       const coordsRaw = f[col('Coordenadas')] || f['Coordenadas'] || f['coordenadas'] || '';
       let coords = null;
@@ -846,9 +847,12 @@ function openEditForm(id) {
   setTimeout(() => document.getElementById('f-nombre').focus(), 100);
 }
 
-function closeForm() {
+function closeForm(clearCoords = false) {
   document.getElementById('form-overlay').classList.remove('open');
-  if (!editingId) pendingCoords = null;
+  if (clearCoords) {
+    pendingCoords = null;
+    if (layers['__preview__']) { map.removeLayer(layers['__preview__']); delete layers['__preview__']; }
+  }
   editingId = null;
 }
 
@@ -912,6 +916,7 @@ function savePolygon() {
   if (layers['__preview__']) map.removeLayer(layers['__preview__']);
   const preview = L.polygon(pendingCoords, { color: s.stroke, fillColor: s.fill, fillOpacity: 0.3, weight: 2, dashArray: '5,5' }).addTo(map);
   layers['__preview__'] = preview;
+  console.log('savePolygon: pendingCoords set to', pendingCoords.length, 'points');
   openNewForm();
 }
 
@@ -942,8 +947,8 @@ document.getElementById('btn-save-poly').onclick = savePolygon;
 document.getElementById('btn-cancel-draw').onclick = cancelDraw;
 document.getElementById('btn-new').onclick = openNewForm;
 document.getElementById('detail-back').onclick = closeDetail;
-document.getElementById('btn-cancelar').onclick = closeForm;
-document.getElementById('form-overlay').onclick = e => { if (e.target === e.currentTarget) closeForm(); };
+document.getElementById('btn-cancelar').onclick = () => closeForm(true);
+document.getElementById('form-overlay').onclick = e => { if (e.target === e.currentTarget) closeForm(true); };
 
 document.querySelectorAll('.filter-pill').forEach(btn => {
   btn.onclick = () => {
@@ -957,11 +962,12 @@ document.querySelectorAll('.filter-pill').forEach(btn => {
 document.getElementById('btn-guardar').onclick = async () => {
   const nombre = document.getElementById('f-nombre').value.trim();
   if (!nombre) { toast('El nombre es obligatorio', 'error'); return; }
-  if (!pendingCoords && !editingId) { toast('No hay polígono definido', 'error'); return; }
   if (!pendingCoords && editingId) {
     const existing = terrenos.find(t => t.id === editingId);
     if (existing) pendingCoords = existing.coords;
   }
+  if (!pendingCoords) { toast('No hay polígono dibujado. Dibuja primero en el mapa.', 'error'); return; }
+  console.log('Guardando con coords:', pendingCoords ? pendingCoords.length + ' puntos' : 'NULL');
   const fields = {
     nombre,
     estado:      document.getElementById('f-estado').value,
@@ -971,9 +977,10 @@ document.getElementById('btn-guardar').onclick = async () => {
     fecha:       document.getElementById('f-fecha').value,
     notas:       document.getElementById('f-notas').value,
   };
-  closeForm();
+  const coordsToSave = pendingCoords;
+  closeForm(false);
   if (layers['__preview__']) { map.removeLayer(layers['__preview__']); delete layers['__preview__']; }
-  await saveTerreno(fields, pendingCoords);
+  await saveTerreno(fields, coordsToSave);
   pendingCoords = null;
 };
 
