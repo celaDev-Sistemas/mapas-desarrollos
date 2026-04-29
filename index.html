@@ -94,6 +94,25 @@
   #sidebar-inner { display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative; }
 
   /* ── SEARCH BAR ── */
+  #search-suggestions {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+    background: var(--surface); border: 0.5px solid var(--border2);
+    border-radius: 0 0 var(--radius) var(--radius);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15); max-height: 240px; overflow-y: auto;
+    display: none;
+  }
+  #search-suggestions.open { display: block; }
+  .suggestion-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; cursor: pointer; font-size: 12px;
+    border-bottom: 0.5px solid var(--border); transition: background 0.1s;
+  }
+  .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-item:hover, .suggestion-item.active { background: var(--surface2); }
+  .suggestion-icon { font-size: 14px; flex-shrink: 0; }
+  .suggestion-main { font-weight: 500; color: var(--text); }
+  .suggestion-sub { color: var(--muted); font-size: 11px; margin-top: 1px; }
+  #search-bar { position: relative; }
   #search-bar {
     padding: 8px 10px; border-bottom: 0.5px solid var(--border);
     position: relative;
@@ -350,7 +369,7 @@
 <div id="topbar" style="display:none">
   <div>
     <div class="app-name">Mapas Desarrollos</div>
-    <div class="app-sub">Celaque · Gestión de terrenos · v8</div>
+    <div class="app-sub">Celaque · Gestión de terrenos · v9</div>
   </div>
   <span id="sync-indicator">⟳ Sincronizando...</span>
   <div id="user-chip">
@@ -385,6 +404,7 @@
         <input id="search-input" type="text" placeholder="Ciudad, nombre o lat,lng..." autocomplete="off" />
         <button id="search-clear">✕</button>
         <div id="search-hint">Ej: Tegucigalpa · o · 14.093,-87.206</div>
+        <div id="search-suggestions"></div>
       </div>
       <div id="filter-bar">
         <button class="filter-pill active" data-f="todos">Todos</button>
@@ -690,7 +710,7 @@ async function loadTerrenos() {
         area:        area !== '' ? parseFloat(area) : '',
         precio:      precio !== '' ? parseFloat(precio) : '',
         propietario: f[col('Propietario')] || f['Propietario'] || '',
-        agente:      f[col('Agentes')]     || f['Agentes']     || '',
+        agente:      f[col('Agentes')] || f[col('Agente')] || f['Agentes'] || f['Agente'] || '',
         fecha:       (f[col('Fecha')]      || f['Fecha'])      ? (f[col('Fecha')] || f['Fecha']).split('T')[0] : '',
         notas:       f[col('Notas')]       || f['Notas']       || '',
         coordsRaw,
@@ -718,7 +738,10 @@ async function saveTerreno(fields, coords, forcedId = null) {
     bodyFields[col('Area')]        = fields.area ? parseFloat(fields.area) : null;
     bodyFields[col('Precio')]      = fields.precio ? parseFloat(fields.precio) : null;
     bodyFields[col('Propietario')] = fields.propietario || null;
-    bodyFields[col('Agentes')]     = fields.agente || null;
+    // Try all possible internal names for Agentes column
+    const agenteKey = col('Agentes') || col('Agente') || 'Agentes';
+    bodyFields[agenteKey] = fields.agente || null;
+    console.log('Saving agente with key:', agenteKey, '=', fields.agente);
     bodyFields[col('Fecha')]       = fields.fecha ? fields.fecha + 'T00:00:00Z' : null;
     bodyFields[col('Notas')]       = fields.notas || null;
     bodyFields[col('Coordenadas')] = coordStr;
@@ -1025,59 +1048,112 @@ function calcPrecioVara() {
 }
 
 // Search: by city name OR by lat,lng coordinates
+let searchDebounce = null;
+let activeSuggestion = -1;
+
 function handleSearch(query) {
   query = query.trim();
   document.getElementById('search-clear').style.display = query ? 'block' : 'none';
   document.getElementById('search-hint').style.display = query ? 'none' : 'block';
-
   renderList();
 
   if (!query) {
     if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
+    hideSuggestions();
     return;
   }
 
-  // Coordinate detection: "14.093,-87.206"
+  // Coordinate detection
   const parts = query.split(',');
   if (parts.length === 2) {
     const lat = parseFloat(parts[0].trim());
     const lng = parseFloat(parts[1].trim());
     if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
-      if (searchPin) map.removeLayer(searchPin);
-      searchPin = L.marker([lat, lng], {
-        icon: L.divIcon({
-          html: '<div style="width:16px;height:16px;background:#e53935;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>',
-          className: '', iconAnchor: [8, 8]
-        })
-      }).addTo(map);
-      searchPin.bindPopup('<b>📍</b> ' + lat.toFixed(6) + ', ' + lng.toFixed(6)).openPopup();
-      map.flyTo([lat, lng], 17, { duration: 1 });
+      hideSuggestions();
+      flyToCoords(lat, lng);
       return;
     }
   }
 
-  // City geocoding via Nominatim
-  if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
-  fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query + ', Honduras') + '&format=json&limit=1&accept-language=es')
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.length) {
-        const lat = parseFloat(data[0].lat);
-        const lng = parseFloat(data[0].lon);
-        const label = data[0].display_name.split(',')[0];
-        if (searchPin) map.removeLayer(searchPin);
-        searchPin = L.marker([lat, lng], {
-          icon: L.divIcon({
-            html: '<div style="background:#0f3d6e;color:#fff;padding:4px 9px;border-radius:8px;font-size:11px;font-family:sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35)">' + label + '</div>',
-            className: '', iconAnchor: [0, 10]
-          })
-        }).addTo(map);
-        map.flyTo([lat, lng], 13, { duration: 1.2 });
-      } else {
-        toast('No se encontró: ' + query, '');
-      }
+  // Debounce nominatim suggestions
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(function() { fetchSuggestions(query); }, 350);
+}
+
+function flyToCoords(lat, lng) {
+  if (searchPin) map.removeLayer(searchPin);
+  searchPin = L.marker([lat, lng], {
+    icon: L.divIcon({
+      html: '<div style="width:16px;height:16px;background:#e53935;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>',
+      className: '', iconAnchor: [8, 8]
     })
-    .catch(function() { toast('Error buscando ubicación', 'error'); });
+  }).addTo(map);
+  searchPin.bindPopup('<b>📍</b> ' + lat.toFixed(6) + ', ' + lng.toFixed(6)).openPopup();
+  map.flyTo([lat, lng], 17, { duration: 1 });
+}
+
+function fetchSuggestions(query) {
+  const url = 'https://nominatim.openstreetmap.org/search?q='
+    + encodeURIComponent(query + ', Honduras')
+    + '&format=json&limit=5&accept-language=es&addressdetails=1';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(results) { showSuggestions(results); })
+    .catch(function() {});
+}
+
+function showSuggestions(results) {
+  const el = document.getElementById('search-suggestions');
+  el.innerHTML = '';
+  activeSuggestion = -1;
+  if (!results.length) { hideSuggestions(); return; }
+
+  results.forEach(function(r, i) {
+    const parts = r.display_name.split(', ');
+    const main = parts[0];
+    const sub = parts.slice(1, 3).join(', ');
+    const icon = r.type === 'city' || r.type === 'town' || r.class === 'place' ? '🏙️'
+               : r.class === 'highway' ? '🛣️'
+               : r.class === 'amenity' ? '📌' : '📍';
+    const div = document.createElement('div');
+    div.className = 'suggestion-item';
+    div.innerHTML = '<span class="suggestion-icon">' + icon + '</span>'
+      + '<div><div class="suggestion-main">' + main + '</div>'
+      + '<div class="suggestion-sub">' + sub + '</div></div>';
+    div.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      selectSuggestion(r);
+    });
+    el.appendChild(div);
+  });
+  el.classList.add('open');
+}
+
+function hideSuggestions() {
+  const el = document.getElementById('search-suggestions');
+  el.classList.remove('open');
+  activeSuggestion = -1;
+}
+
+function selectSuggestion(r) {
+  const lat = parseFloat(r.lat);
+  const lng = parseFloat(r.lon);
+  const name = r.display_name.split(',')[0];
+  document.getElementById('search-input').value = name;
+  hideSuggestions();
+  if (searchPin) map.removeLayer(searchPin);
+  searchPin = L.marker([lat, lng], {
+    icon: L.divIcon({
+      html: '<div style="background:#0f3d6e;color:#fff;padding:4px 10px;border-radius:8px;font-size:11px;font-family:sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);max-width:160px;overflow:hidden;text-overflow:ellipsis">' + name + '</div>',
+      className: '', iconAnchor: [0, 10]
+    })
+  }).addTo(map);
+  if (r.boundingbox) {
+    const bb = r.boundingbox;
+    map.flyToBounds([[parseFloat(bb[0]), parseFloat(bb[2])],[parseFloat(bb[1]), parseFloat(bb[3])]], { duration: 1.2, padding: [30, 30] });
+  } else {
+    map.flyTo([lat, lng], 14, { duration: 1.2 });
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1090,14 +1166,34 @@ document.getElementById('btn-logout').onclick = () => {
 // Search events
 document.getElementById('search-input').addEventListener('input', e => handleSearch(e.target.value));
 document.getElementById('search-input').addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
+  const sugg = document.getElementById('search-suggestions');
+  const items = sugg.querySelectorAll('.suggestion-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeSuggestion = Math.min(activeSuggestion + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === activeSuggestion));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeSuggestion = Math.max(activeSuggestion - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('active', i === activeSuggestion));
+  } else if (e.key === 'Enter' && activeSuggestion >= 0) {
+    items[activeSuggestion].dispatchEvent(new MouseEvent('mousedown'));
+  } else if (e.key === 'Escape') {
     document.getElementById('search-input').value = '';
     handleSearch('');
+    hideSuggestions();
   }
+});
+document.getElementById('search-input').addEventListener('blur', () => {
+  setTimeout(hideSuggestions, 150);
+});
+document.getElementById('search-input').addEventListener('focus', e => {
+  if (e.target.value.trim()) handleSearch(e.target.value);
 });
 document.getElementById('search-clear').onclick = () => {
   document.getElementById('search-input').value = '';
   handleSearch('');
+  hideSuggestions();
 };
 
 // Area input also recalculates price/vara
