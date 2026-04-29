@@ -95,11 +95,11 @@
 
   /* ── SEARCH BAR ── */
   #search-suggestions {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+    position: fixed; z-index: 9000;
     background: var(--surface); border: 0.5px solid var(--border2);
-    border-radius: 0 0 var(--radius) var(--radius);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15); max-height: 240px; overflow-y: auto;
-    display: none;
+    border-radius: var(--radius);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.18); max-height: 260px; overflow-y: auto;
+    display: none; width: 280px;
   }
   #search-suggestions.open { display: block; }
   .suggestion-item {
@@ -369,7 +369,7 @@
 <div id="topbar" style="display:none">
   <div>
     <div class="app-name">Mapas Desarrollos</div>
-    <div class="app-sub">Celaque · Gestión de terrenos · v9</div>
+    <div class="app-sub">Celaque · Gestión de terrenos · v10</div>
   </div>
   <span id="sync-indicator">⟳ Sincronizando...</span>
   <div id="user-chip">
@@ -1107,6 +1107,12 @@ function showSuggestions(results) {
   el.innerHTML = '';
   activeSuggestion = -1;
   if (!results.length) { hideSuggestions(); return; }
+  // Position below the search input
+  const input = document.getElementById('search-input');
+  const rect = input.getBoundingClientRect();
+  el.style.top  = (rect.bottom + 4) + 'px';
+  el.style.left = rect.left + 'px';
+  el.style.width = rect.width + 'px';
 
   results.forEach(function(r, i) {
     const parts = r.display_name.split(', ');
