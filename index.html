@@ -93,6 +93,22 @@
   }
   #sidebar-inner { display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative; }
 
+  /* ── SEARCH BAR ── */
+  #search-bar {
+    padding: 8px 10px; border-bottom: 0.5px solid var(--border);
+    position: relative;
+  }
+  #search-input {
+    width: 100%; padding: 7px 32px 7px 30px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); font-size: 13px; font-family: var(--font);
+    color: var(--text); background: var(--surface2); outline: none;
+    transition: border-color 0.15s;
+  }
+  #search-input:focus { border-color: #0f3d6e; background: var(--surface); }
+  #search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--muted); pointer-events: none; }
+  #search-clear { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; display: none; padding: 0; }
+  #search-hint { font-size: 10px; color: var(--muted); margin-top: 4px; padding: 0 2px; }
+
   #stats-row {
     display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0;
     border-bottom: 0.5px solid var(--border);
@@ -334,7 +350,7 @@
 <div id="topbar" style="display:none">
   <div>
     <div class="app-name">Mapas Desarrollos</div>
-    <div class="app-sub">Celaque · Gestión de terrenos · v6</div>
+    <div class="app-sub">Celaque · Gestión de terrenos · v7</div>
   </div>
   <span id="sync-indicator">⟳ Sincronizando...</span>
   <div id="user-chip">
@@ -363,6 +379,12 @@
           <div class="stat-num" id="cnt-d">0</div>
           <div class="stat-lbl">Descartados</div>
         </div>
+      </div>
+      <div id="search-bar">
+        <span id="search-icon">🔍</span>
+        <input id="search-input" type="text" placeholder="Ciudad, nombre o lat,lng..." autocomplete="off" />
+        <button id="search-clear">✕</button>
+        <div id="search-hint">Ej: Tegucigalpa · o · 14.093,-87.206</div>
       </div>
       <div id="filter-bar">
         <button class="filter-pill active" data-f="todos">Todos</button>
@@ -423,16 +445,28 @@
         </select>
       </div>
       <div>
-        <label class="f-label">Área (m²)</label>
-        <input class="f-input" id="f-area" type="number" step="1" placeholder="0" />
+        <label class="f-label">Área (v²)</label>
+        <input class="f-input" id="f-area" type="number" step="0.01" placeholder="0.00" />
       </div>
       <div>
-        <label class="f-label">Precio (L.)</label>
-        <input class="f-input" id="f-precio" type="text" placeholder="Ej: 500,000" />
+        <label class="f-label">Precio total ($)</label>
+        <input class="f-input" id="f-precio" type="number" step="0.01" placeholder="0.00" oninput="calcPrecioVara()" />
+      </div>
+      <div>
+        <label class="f-label">$ / vara²</label>
+        <input class="f-input" id="f-precio-vara" type="text" placeholder="Auto" readonly style="background:var(--surface2);color:var(--muted)" />
+      </div>
+      <div>
+        <label class="f-label">Ciudad</label>
+        <input class="f-input" id="f-ciudad" type="text" placeholder="Ej: Tegucigalpa" />
       </div>
       <div>
         <label class="f-label">Propietario</label>
         <input class="f-input" id="f-propietario" type="text" placeholder="Nombre del propietario" />
+      </div>
+      <div>
+        <label class="f-label">Agente</label>
+        <input class="f-input" id="f-agente" type="text" placeholder="Nombre del agente" />
       </div>
       <div>
         <label class="f-label">Fecha</label>
@@ -637,7 +671,7 @@ async function loadTerrenos() {
   try {
     await getSiteAndList();
     const data = await graphGet(
-      `/sites/${siteId}/lists/${listId}/items?expand=fields($select=Title,Nombre,Estado,Area,Precio,Propietario,Fecha,Notas,Coordenadas,Usuario,id)&$top=500`
+      `/sites/${siteId}/lists/${listId}/items?expand=fields($select=Title,Nombre,Estado,Area,Precio,Propietario,Fecha,Notas,Coordenadas,Usuario,Ciudad,Agentes,id)&$top=500`
     );
     terrenos = data.value.map(item => {
       const f = item.fields;
@@ -649,13 +683,17 @@ async function loadTerrenos() {
       if (coordsRaw && coordsRaw !== 'null' && coordsRaw.trim() !== '') {
         try { coords = JSON.parse(coordsRaw); } catch(e) { console.warn('Coords parse error:', e, coordsRaw); }
       }
+      const precio = f[col('Precio')] != null ? f[col('Precio')] : (f['Precio'] != null ? f['Precio'] : '');
+      const area   = f[col('Area')]   != null ? f[col('Area')]   : (f['Area']   != null ? f['Area']   : '');
       return {
         id:          item.id,
         nombre:      f[col('Nombre')]      || f['Nombre']      || f.Title || '(sin nombre)',
         estado:      (f[col('Estado')]     || f['Estado']      || 'posible').toLowerCase(),
-        area:        f[col('Area')]        != null ? f[col('Area')]        : (f['Area'] != null ? f['Area'] : ''),
-        precio:      f[col('Precio')]      != null ? f[col('Precio')].toString() : (f['Precio'] != null ? f['Precio'].toString() : ''),
+        area:        area !== '' ? parseFloat(area) : '',
+        precio:      precio !== '' ? parseFloat(precio) : '',
         propietario: f[col('Propietario')] || f['Propietario'] || '',
+        agente:      f[col('Agentes')]     || f['Agentes']     || '',
+        ciudad:      f[col('Ciudad')]      || f['Ciudad']      || '',
         fecha:       (f[col('Fecha')]      || f['Fecha'])      ? (f[col('Fecha')] || f['Fecha']).split('T')[0] : '',
         notas:       f[col('Notas')]       || f['Notas']       || '',
         coordsRaw,
@@ -680,15 +718,16 @@ async function saveTerreno(fields, coords, forcedId = null) {
     };
     bodyFields[col('Nombre')]      = fields.nombre;
     bodyFields[col('Estado')]      = fields.estado;
-    bodyFields[col('Area')]        = fields.area ? parseInt(fields.area) : null;
-    bodyFields[col('Precio')]      = fields.precio || null;
+    bodyFields[col('Area')]        = fields.area ? parseFloat(fields.area) : null;
+    bodyFields[col('Precio')]      = fields.precio ? parseFloat(fields.precio) : null;
     bodyFields[col('Propietario')] = fields.propietario || null;
+    bodyFields[col('Agentes')]     = fields.agente || null;
+    bodyFields[col('Ciudad')]      = fields.ciudad || null;
     bodyFields[col('Fecha')]       = fields.fecha ? fields.fecha + 'T00:00:00Z' : null;
     bodyFields[col('Notas')]       = fields.notas || null;
     bodyFields[col('Coordenadas')] = coordStr;
     if (currentUser) {
-      const userName = currentUser.name || currentUser.username || '';
-      bodyFields[col('Usuario')] = userName;
+      bodyFields[col('Usuario')] = currentUser.name || currentUser.username || '';
     }
     console.log('Saving fields:', JSON.stringify(bodyFields));
     const body = { fields: bodyFields };
@@ -741,7 +780,7 @@ function renderAll() {
       color: s.stroke, fillColor: s.fill, fillOpacity: 0.35, weight: 2.5,
       className: 'poly-' + t.estado
     }).addTo(map);
-    poly.bindTooltip(`<b>${t.nombre}</b><br>${ESTADO_LABEL[t.estado]}${t.area !== '' ? '<br>' + Number(t.area).toLocaleString() + ' m²' : ''}`, {
+    poly.bindTooltip(`<b>${t.nombre}</b><br>${ESTADO_LABEL[t.estado]}${t.area !== '' ? '<br>' + Number(t.area).toLocaleString() + ' v²' : ''}${t.precio !== '' && t.precio != null ? '<br>$' + Number(t.precio).toLocaleString() : ''}${t.ciudad ? '<br>📍' + t.ciudad : ''}`, {
       direction: 'center', permanent: false, className: 'poly-tooltip'
     });
     poly.on('mouseover', function() { this.setStyle({ fillOpacity: 0.6, weight: 3 }); });
@@ -778,8 +817,9 @@ function renderList() {
         <span class="t-badge" style="background:${s.bg};color:${s.text}">${ESTADO_LABEL[t.estado]}</span>
       </div>
       <div class="t-meta">
-        ${t.area !== '' ? `<span>${Number(t.area).toLocaleString()} m²</span>` : ''}
-        ${t.propietario ? `<span>${t.propietario}</span>` : ''}
+        ${t.area !== '' ? `<span>${Number(t.area).toLocaleString()} v²</span>` : ''}
+        ${t.precio !== '' ? `<span>$${Number(t.precio).toLocaleString()}</span>` : ''}
+        ${t.ciudad ? `<span>📍${t.ciudad}</span>` : ''}
       </div>`;
     div.onclick = () => showDetail(t.id);
     el.appendChild(div);
@@ -859,6 +899,9 @@ function openNewForm() {
   document.getElementById('f-propietario').value = '';
   document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
   document.getElementById('f-notas').value = '';
+  document.getElementById('f-ciudad').value = '';
+  document.getElementById('f-agente').value = '';
+  document.getElementById('f-precio-vara').value = '';
   document.getElementById('form-overlay').classList.add('open');
 }
 
@@ -875,6 +918,9 @@ function openEditForm(id) {
   document.getElementById('f-propietario').value = t.propietario || '';
   document.getElementById('f-fecha').value = t.fecha || '';
   document.getElementById('f-notas').value = t.notas || '';
+  document.getElementById('f-ciudad').value = t.ciudad || '';
+  document.getElementById('f-agente').value = t.agente || '';
+  calcPrecioVara();
   document.getElementById('detail-panel').classList.remove('open');
   selectedId = null;
   document.getElementById('form-overlay').classList.add('open');
@@ -970,12 +1016,114 @@ function toast(msg, type='') {
 }
 
 // ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function calcPrecioVara() {
+  const area  = parseFloat(document.getElementById('f-area').value)  || 0;
+  const price = parseFloat(document.getElementById('f-precio').value) || 0;
+  const el = document.getElementById('f-precio-vara');
+  if (area > 0 && price > 0) {
+    el.value = '$' + (price / area).toFixed(2) + ' / v²';
+  } else {
+    el.value = '';
+  }
+}
+
+// Search: by city name OR by lat,lng coordinates
+function handleSearch(query) {
+  query = query.trim();
+  document.getElementById('search-clear').style.display = query ? 'block' : 'none';
+  document.getElementById('search-hint').style.display = query ? 'none' : 'block';
+
+  if (!query) { renderList(); return; }
+
+  // Detect coordinate format: "14.093,-87.206" or "14.093, -87.206"
+  const coordMatch = query.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+  if (coordMatch) {
+    const lat = parseFloat(coordMatch[1]);
+    const lng = parseFloat(coordMatch[2]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      map.flyTo([lat, lng], 16, { duration: 1 });
+      toast(`Navegando a ${lat.toFixed(4)}, ${lng.toFixed(4)}`, 'success');
+      renderList(); // show all in list
+      return;
+    }
+  }
+
+  // City / name search — filter list and fly to first match
+  const q = query.toLowerCase();
+  const matches = terrenos.filter(t =>
+    (t.ciudad  || '').toLowerCase().includes(q) ||
+    (t.nombre  || '').toLowerCase().includes(q) ||
+    (t.agente  || '').toLowerCase().includes(q)
+  );
+
+  // Render filtered list
+  const el = document.getElementById('terreno-list');
+  const empty = document.getElementById('empty-list');
+  el.innerHTML = '';
+  if (!matches.length) {
+    empty.style.display = 'block';
+    empty.textContent = `Sin resultados para "${query}"`;
+    return;
+  }
+  empty.style.display = 'none';
+  matches.forEach(t => {
+    const s = ESTADO_STYLE[t.estado] || ESTADO_STYLE.posible;
+    const div = document.createElement('div');
+    div.className = 'terreno-item' + (t.id === selectedId ? ' selected' : '');
+    div.dataset.id = t.id;
+    div.innerHTML = `
+      <div class="t-item-top">
+        <div class="t-dot" style="background:${s.fill}"></div>
+        <span class="t-name">${t.nombre}</span>
+        <span class="t-badge" style="background:${s.bg};color:${s.text}">${ESTADO_LABEL[t.estado]}</span>
+      </div>
+      <div class="t-meta">
+        ${t.area !== '' ? `<span>${Number(t.area).toLocaleString()} v²</span>` : ''}
+        ${t.precio !== '' && t.precio != null ? `<span>$${Number(t.precio).toLocaleString()}</span>` : ''}
+        ${t.ciudad ? `<span>📍${t.ciudad}</span>` : ''}
+      </div>`;
+    div.onclick = () => showDetail(t.id);
+    el.appendChild(div);
+  });
+
+  // Fly to first match that has coords
+  const first = matches.find(t => t.coords && layers[t.id]);
+  if (first) {
+    map.flyToBounds(layers[first.id].getBounds(), { padding: [60, 60], duration: 1 });
+  } else if (matches.length === 1 && matches[0].ciudad) {
+    // Try geocoding the city via nominatim
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(matches[0].ciudad + ', Honduras')}&format=json&limit=1`)
+      .then(r => r.json()).then(data => {
+        if (data.length) map.flyTo([parseFloat(data[0].lat), parseFloat(data[0].lon)], 13, { duration: 1 });
+      }).catch(() => {});
+  }
+}
+
+// ══════════════════════════════════════════
 //  EVENTS
 // ══════════════════════════════════════════
 document.getElementById('btn-login').onclick = login;
 document.getElementById('btn-logout').onclick = () => {
   msalInstance.logoutRedirect({ postLogoutRedirectUri: CONFIG.redirectUri });
 };
+// Search events
+document.getElementById('search-input').addEventListener('input', e => handleSearch(e.target.value));
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('search-input').value = '';
+    handleSearch('');
+  }
+});
+document.getElementById('search-clear').onclick = () => {
+  document.getElementById('search-input').value = '';
+  handleSearch('');
+};
+
+// Area input also recalculates price/vara
+document.getElementById('f-area').addEventListener('input', calcPrecioVara);
+
 document.getElementById('btn-draw').onclick = startDraw;
 document.getElementById('btn-save-poly').onclick = savePolygon;
 
@@ -1010,6 +1158,8 @@ document.getElementById('btn-guardar').onclick = async () => {
     area:        document.getElementById('f-area').value,
     precio:      document.getElementById('f-precio').value,
     propietario: document.getElementById('f-propietario').value,
+    agente:      document.getElementById('f-agente').value,
+    ciudad:      document.getElementById('f-ciudad').value,
     fecha:       document.getElementById('f-fecha').value,
     notas:       document.getElementById('f-notas').value,
   };
