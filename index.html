@@ -1,354 +1,142 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
 <title>Mapas Desarrollos — Celaque</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --green:   #2e7d32; --green-bg:  #e8f5e9; --green-border: #a5d6a7;
-    --yellow:  #e65100; --yellow-bg: #fff8e1; --yellow-border: #ffe082;
-    --red:     #c62828; --red-bg:    #ffebee; --red-border:   #ef9a9a;
-    --surface: #ffffff;
-    --surface2: #f7f6f3;
-    --border:  rgba(0,0,0,0.10);
-    --border2: rgba(0,0,0,0.18);
-    --text:    #1a1a18;
-    --muted:   #6b6b66;
-    --accent:  #1a5c96;
-    --font: 'DM Sans', sans-serif;
-    --mono: 'DM Mono', monospace;
-    --radius: 10px;
-    --shadow: 0 2px 12px rgba(0,0,0,0.10);
-  }
-
-  html, body { height: 100%; font-family: var(--font); background: var(--surface2); color: var(--text); }
-
-  /* ── AUTH SCREEN ── */
-  #auth-screen {
-    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: var(--surface2); z-index: 9999;
-  }
-  .auth-card {
-    background: var(--surface); border: 0.5px solid var(--border2);
-    border-radius: 16px; padding: 40px 48px; text-align: center;
-    box-shadow: var(--shadow); max-width: 380px; width: 90%;
-  }
-  .auth-logo {
-    width: 52px; height: 52px; background: #0f3d6e; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 20px; font-size: 24px;
-  }
-  .auth-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
-  .auth-card p  { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
-  .btn-ms {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    background: #0078d4; color: #fff; border: none; border-radius: var(--radius);
-    padding: 11px 24px; font-size: 14px; font-family: var(--font); font-weight: 500;
-    cursor: pointer; width: 100%; transition: background 0.15s;
-  }
-  .btn-ms:hover { background: #106ebe; }
-  .btn-ms svg { width: 18px; height: 18px; flex-shrink: 0; }
-  #auth-error { color: var(--red); font-size: 12px; margin-top: 14px; display: none; }
-
-  /* ── TOPBAR ── */
-  #topbar {
-    position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 500;
-    background: #0f3d6e; display: flex; align-items: center; padding: 0 16px; gap: 12px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.25);
-  }
-  #topbar .app-name { color: #fff; font-size: 15px; font-weight: 600; flex: 1; letter-spacing: -0.2px; }
-  #topbar .app-sub  { color: rgba(255,255,255,0.55); font-size: 11px; font-weight: 400; }
-  #user-chip {
-    display: flex; align-items: center; gap: 7px;
-    background: rgba(255,255,255,0.12); border-radius: 20px;
-    padding: 4px 10px 4px 4px; cursor: pointer;
-  }
-  #user-avatar {
-    width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,0.3);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 600; color: #fff;
-  }
-  #user-name { font-size: 12px; color: rgba(255,255,255,0.85); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #btn-logout { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 11px; cursor: pointer; padding: 4px 6px; }
-  #btn-logout:hover { color: #fff; }
-  #sync-indicator { font-size: 11px; color: rgba(255,255,255,0.6); display: none; }
-  #sync-indicator.show { display: block; }
-
-  /* ── LAYOUT ── */
-  #app {
-    display: flex; position: fixed; top: 52px; bottom: 0; left: 0; right: 0;
-  }
-
-  /* ── SIDEBAR ── */
-  #sidebar {
-    width: 300px; display: flex; flex-direction: column;
-    background: var(--surface); border-right: 0.5px solid var(--border);
-    z-index: 100; transition: transform 0.25s ease;
-  }
-  #sidebar-inner { display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative; }
-
-  /* ── SEARCH BAR ── */
-  #search-suggestions {
-    position: fixed; z-index: 9000;
-    background: var(--surface); border: 0.5px solid var(--border2);
-    border-radius: var(--radius);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.18); max-height: 260px; overflow-y: auto;
-    display: none; width: 280px;
-  }
-  #search-suggestions.open { display: block; }
-  .suggestion-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 12px; cursor: pointer; font-size: 12px;
-    border-bottom: 0.5px solid var(--border); transition: background 0.1s;
-  }
-  .suggestion-item:last-child { border-bottom: none; }
-  .suggestion-item:hover, .suggestion-item.active { background: var(--surface2); }
-  .suggestion-icon { font-size: 14px; flex-shrink: 0; }
-  .suggestion-main { font-weight: 500; color: var(--text); }
-  .suggestion-sub { color: var(--muted); font-size: 11px; margin-top: 1px; }
-  #search-bar { position: relative; }
-  #search-bar {
-    padding: 8px 10px; border-bottom: 0.5px solid var(--border);
-    position: relative;
-  }
-  #search-input {
-    width: 100%; padding: 7px 32px 7px 30px; border: 0.5px solid var(--border2);
-    border-radius: var(--radius); font-size: 13px; font-family: var(--font);
-    color: var(--text); background: var(--surface2); outline: none;
-    transition: border-color 0.15s;
-  }
-  #search-input:focus { border-color: #0f3d6e; background: var(--surface); }
-  #search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--muted); pointer-events: none; }
-  #search-clear { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; display: none; padding: 0; }
-  #search-hint { font-size: 10px; color: var(--muted); margin-top: 4px; padding: 0 2px; }
-
-  #stats-row {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0;
-    border-bottom: 0.5px solid var(--border);
-  }
-  .stat-cell {
-    padding: 12px 8px; text-align: center; border-right: 0.5px solid var(--border);
-  }
-  .stat-cell:last-child { border-right: none; }
-  .stat-num { font-size: 22px; font-weight: 600; line-height: 1; }
-  .stat-lbl { font-size: 10px; color: var(--muted); margin-top: 3px; font-weight: 400; }
-  .s-green  .stat-num { color: var(--green); }
-  .s-yellow .stat-num { color: #c17900; }
-  .s-red    .stat-num { color: var(--red); }
-
-  #filter-bar {
-    padding: 10px 12px; border-bottom: 0.5px solid var(--border);
-    display: flex; gap: 5px; flex-wrap: wrap;
-  }
-  .filter-pill {
-    font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 0.5px solid var(--border2);
-    cursor: pointer; background: none; font-family: var(--font); color: var(--muted); transition: all 0.12s;
-  }
-  .filter-pill.active { background: #0f3d6e; color: #fff; border-color: #0f3d6e; }
-
-  #terreno-list { flex: 1; overflow-y: auto; padding: 8px; }
-  #terreno-list::-webkit-scrollbar { width: 4px; }
-  #terreno-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
-
-  .t-item {
-    padding: 10px 12px; border-radius: var(--radius); border: 0.5px solid var(--border);
-    margin-bottom: 6px; cursor: pointer; transition: all 0.12s; background: var(--surface);
-  }
-  .t-item:hover { border-color: var(--border2); background: var(--surface2); }
-  .t-item.selected { border-color: #0f3d6e; background: #f0f5fb; }
-  .t-item-top { display: flex; align-items: center; gap: 8px; }
-  .t-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .t-name { font-size: 13px; font-weight: 500; flex: 1; line-height: 1.3; }
-  .t-meta { font-size: 11px; color: var(--muted); margin-top: 4px; padding-left: 17px; display: flex; gap: 10px; }
-  .t-badge {
-    font-size: 10px; padding: 1px 7px; border-radius: 10px; font-weight: 500;
-    display: inline-flex; align-items: center;
-  }
-
-  #empty-list { padding: 32px 16px; text-align: center; color: var(--muted); font-size: 13px; display: none; }
-
-  #btn-new {
-    margin: 10px 12px 12px; padding: 9px; font-size: 13px; font-weight: 500;
-    background: #0f3d6e; color: #fff; border: none; border-radius: var(--radius);
-    cursor: pointer; font-family: var(--font); transition: background 0.15s;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-  }
-  #btn-new:hover { background: #1a5c96; }
-  #btn-new:disabled { background: var(--border2); cursor: not-allowed; }
-
-  /* ── MAP ── */
-  #map-container { flex: 1; position: relative; }
-  #map { width: 100%; height: 100%; }
-
-  #map-tools {
-    position: absolute; top: 12px; right: 12px; z-index: 400;
-    display: flex; flex-direction: column; gap: 5px; align-items: flex-end;
-  }
-  .map-btn {
-    background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius);
-    padding: 7px 12px; font-size: 12px; font-family: var(--font); font-weight: 500;
-    cursor: pointer; color: var(--text); white-space: nowrap; box-shadow: var(--shadow);
-    transition: all 0.12s;
-  }
-  .map-btn:hover { background: var(--surface2); }
-  .map-btn.active { background: #0f3d6e; color: #fff; border-color: #0f3d6e; }
-  .map-btn.danger { color: var(--red); border-color: var(--red-border); }
-
-  #draw-hint {
-    position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
-    background: rgba(15,61,110,0.88); color: #fff; padding: 6px 16px;
-    border-radius: 20px; font-size: 12px; z-index: 400; pointer-events: none;
-    display: none; white-space: nowrap;
-  }
-  #draw-hint.show { display: block; }
-
-  #legend {
-    position: absolute; bottom: 12px; left: 12px; z-index: 400;
-    background: var(--surface); border: 0.5px solid var(--border2);
-    border-radius: var(--radius); padding: 10px 14px; box-shadow: var(--shadow);
-  }
-  .leg-row { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
-  .leg-row:last-child { margin-bottom: 0; }
-  .leg-sq { width: 13px; height: 13px; border-radius: 3px; }
-
-  #mobile-toggle {
-    display: none; position: absolute; bottom: 12px; right: 12px; z-index: 400;
-    background: #0f3d6e; color: #fff; border: none; border-radius: 24px;
-    padding: 10px 16px; font-size: 13px; font-family: var(--font); font-weight: 500;
-    cursor: pointer; box-shadow: var(--shadow);
-  }
-
-  /* ── DETAIL PANEL ── */
-  #detail-panel {
-    position: absolute; inset: 0; background: var(--surface); z-index: 200;
-    display: none; flex-direction: column; overflow: hidden;
-  }
-  #detail-panel.open { display: flex; }
-  #detail-head {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 12px; border-bottom: 2px solid #0f3d6e; flex-shrink: 0;
-    background: #f0f5fb;
-  }
-  .btn-back { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--muted); padding: 0 4px; line-height: 1; flex-shrink: 0; }
-  .btn-back:hover { color: var(--text); }
-  #detail-name { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .btn-edit {
-    background: #2e7d32; border: none; border-radius: 7px; flex-shrink: 0;
-    padding: 6px 14px; font-size: 12px; cursor: pointer; color: #fff;
-    font-family: var(--font); font-weight: 600; letter-spacing: 0.2px;
-  }
-  .btn-edit:hover { background: #388e3c; }
-  #detail-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-  #detail-body { padding: 12px 14px; flex: 1; }
-  .d-row { margin-bottom: 12px; }
-  .d-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 3px; }
-  .d-value { font-size: 13px; color: var(--text); line-height: 1.5; }
-  .d-coords { font-family: var(--mono); font-size: 10px; color: var(--muted); background: var(--surface2); padding: 6px 8px; border-radius: 6px; word-break: break-all; }
-  .btn-delete { margin: 0 14px 14px; padding: 9px; background: none; border: 0.5px solid var(--red-border); border-radius: var(--radius); color: var(--red); font-size: 13px; font-family: var(--font); cursor: pointer; width: calc(100% - 28px); flex-shrink: 0; }
-  .btn-delete:hover { background: var(--red-bg); }
-
-  /* ── FORM PANEL ── */
-  #form-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 600; display: none; align-items: flex-end;
-  }
-  #form-overlay.open { display: flex; }
-  #form-sheet {
-    background: var(--surface); border-radius: 16px 16px 0 0; width: 100%;
-    padding: 20px 20px 32px; max-height: 92vh; overflow-y: auto;
-    animation: slideUp 0.22s ease;
-  }
-  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-  #form-sheet h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .form-full { grid-column: 1 / -1; }
-  .f-label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
-  .f-input {
-    width: 100%; padding: 8px 10px; border: 0.5px solid var(--border2);
-    border-radius: 8px; font-size: 13px; font-family: var(--font); color: var(--text);
-    background: var(--surface); outline: none; transition: border-color 0.12s;
-  }
-  .f-input:focus { border-color: #0f3d6e; }
-  .f-input.select-estado { cursor: pointer; }
-  textarea.f-input { resize: none; height: 60px; }
-  .form-actions { display: flex; gap: 10px; margin-top: 16px; }
-  .btn-primary {
-    flex: 1; padding: 10px; background: #0f3d6e; color: #fff; border: none;
-    border-radius: var(--radius); font-size: 14px; font-family: var(--font); font-weight: 500;
-    cursor: pointer; transition: background 0.15s;
-  }
-  .btn-primary:hover { background: #1a5c96; }
-  .btn-primary:disabled { background: #b0bec5; cursor: not-allowed; }
-  .btn-secondary {
-    padding: 10px 18px; background: none; border: 0.5px solid var(--border2);
-    border-radius: var(--radius); font-size: 14px; font-family: var(--font);
-    cursor: pointer; color: var(--muted);
-  }
-
-  /* ── TOAST ── */
-  #toast {
-    position: fixed; bottom: 24px; right: 24px; z-index: 9000;
-    background: #1a1a18; color: #fff; padding: 10px 18px;
-    border-radius: var(--radius); font-size: 13px; opacity: 0;
-    transition: opacity 0.2s; pointer-events: none;
-  }
-  #toast.show { opacity: 1; }
-  #toast.success { background: var(--green); }
-  #toast.error { background: var(--red); }
-
-  /* ── LOADING ── */
-  #loading-overlay {
-    position: fixed; inset: 0; background: rgba(247,246,243,0.85); z-index: 800;
-    display: flex; align-items: center; justify-content: center; display: none;
-  }
-  .spinner { width: 32px; height: 32px; border: 3px solid var(--border2); border-top-color: #0f3d6e; border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ── RESPONSIVE ── */
-  .comment-item {
-    background: var(--surface2); border-radius: 7px; padding: 7px 10px;
-    margin-bottom: 5px; font-size: 12px; color: var(--text); position: relative;
-    border-left: 2.5px solid var(--border2);
-  }
-  .comment-item .c-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
-  .comment-item .c-del { position: absolute; top: 6px; right: 8px; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 13px; padding: 0; }
-  .comment-item .c-del:hover { color: var(--red); }
-  .detail-comments { margin-top: 4px; }
-  .detail-comment-item { background: var(--surface2); border-radius: 7px; padding: 7px 10px; margin-bottom: 5px; font-size: 12px; border-left: 2.5px solid #0f3d6e22; }
-  .detail-comment-item .c-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
-  .btn-ir-mapa { display:flex; align-items:center; gap:5px; background:none; border:0.5px solid var(--border2); border-radius:7px; padding:5px 10px; font-size:11px; cursor:pointer; color:var(--accent); font-family:var(--font); margin-left:auto; }
-  .btn-ir-mapa:hover { background: var(--surface2); }
-
-  .poly-tooltip {
-    background: rgba(15,61,110,0.90) !important; color: #fff !important;
-    border: none !important; border-radius: 8px !important;
-    padding: 6px 10px !important; font-family: 'DM Sans', sans-serif !important;
-    font-size: 12px !important; box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
-  }
-  .poly-tooltip::before { display: none !important; }
-  .leaflet-tooltip { white-space: normal !important; }
-
-  @media (max-width: 700px) {
-    #sidebar { position: absolute; bottom: 0; left: 0; right: 0; width: 100%; height: 220px; top: auto; border-right: none; border-top: 0.5px solid var(--border); transform: translateY(0); }
-    #sidebar.hidden { transform: translateY(calc(100% - 42px)); }
-    #map-container { position: absolute; top: 0; left: 0; right: 0; bottom: 220px; }
-    #sidebar.hidden ~ #map-container, #app.panel-open #map-container { bottom: 0; }
-    #mobile-toggle { display: block; }
-    #terreno-list { display: none; }
-    #sidebar.hidden #stats-row { display: none; }
-    #detail-panel { position: fixed; inset: 52px 0 0; z-index: 300; }
-    #form-sheet { max-height: 96vh; }
-  }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#2e7d32;--green-bg:#e8f5e9;
+  --red:#c62828;--red-bg:#ffebee;--red-border:#ef9a9a;
+  --surface:#ffffff;--surface2:#f7f6f3;--border:rgba(0,0,0,0.10);
+  --border2:rgba(0,0,0,0.18);--text:#1a1a18;--muted:#6b6b66;
+  --accent:#1a5c96;--navy:#0f3d6e;
+  --font:'DM Sans',sans-serif;--radius:10px;--shadow:0 2px 12px rgba(0,0,0,0.10);
+}
+html,body{height:100%;font-family:var(--font);background:var(--surface2);color:var(--text)}
+#auth-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--surface2);z-index:9999}
+.auth-card{background:var(--surface);border:0.5px solid var(--border2);border-radius:16px;padding:40px 48px;text-align:center;box-shadow:var(--shadow);max-width:380px;width:90%}
+.auth-logo{width:52px;height:52px;background:var(--navy);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:24px}
+.auth-card h1{font-size:20px;font-weight:600;margin-bottom:6px}
+.auth-card p{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.6}
+.btn-ms{display:flex;align-items:center;justify-content:center;gap:10px;background:#0078d4;color:#fff;border:none;border-radius:var(--radius);padding:11px 24px;font-size:14px;font-family:var(--font);font-weight:500;cursor:pointer;width:100%}
+.btn-ms:hover{background:#106ebe}
+.btn-ms svg{width:18px;height:18px;flex-shrink:0}
+#topbar{position:fixed;top:0;left:0;right:0;height:52px;z-index:500;background:var(--navy);display:flex;align-items:center;padding:0 16px;gap:12px;box-shadow:0 1px 6px rgba(0,0,0,0.25)}
+.app-name{color:#fff;font-size:15px;font-weight:600;flex:1}
+.app-sub{color:rgba(255,255,255,0.55);font-size:11px}
+#user-chip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.12);border-radius:20px;padding:4px 10px 4px 4px}
+#user-avatar{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff}
+#user-name{font-size:12px;color:rgba(255,255,255,0.85);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#btn-logout{background:none;border:none;color:rgba(255,255,255,0.5);font-size:11px;cursor:pointer;padding:4px 6px}
+#btn-logout:hover{color:#fff}
+#sync-indicator{font-size:11px;color:rgba(255,255,255,0.6);display:none}
+#sync-indicator.show{display:block}
+#app{display:flex;position:fixed;top:52px;bottom:0;left:0;right:0}
+#sidebar{width:280px;display:flex;flex-direction:column;background:var(--surface);border-right:0.5px solid var(--border);z-index:100}
+#sidebar-inner{display:flex;flex-direction:column;height:100%;overflow:hidden;position:relative}
+#search-bar{padding:8px 10px;border-bottom:0.5px solid var(--border);flex-shrink:0}
+.search-row{display:flex;align-items:center;gap:5px}
+.search-lbl{font-size:13px;flex-shrink:0;width:18px;text-align:center}
+.search-row input{flex:1;padding:6px 8px;border:0.5px solid var(--border2);border-radius:7px;font-size:12px;font-family:var(--font);color:var(--text);background:var(--surface2);outline:none;min-width:0;transition:border-color 0.15s}
+.search-row input:focus{border-color:var(--navy);background:var(--surface)}
+#search-clear-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;display:none;flex-shrink:0}
+#search-suggestions{position:fixed;z-index:9000;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius);box-shadow:0 4px 20px rgba(0,0,0,0.18);max-height:260px;overflow-y:auto;display:none}
+#search-suggestions.open{display:block}
+.suggestion-item{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:0.5px solid var(--border);transition:background 0.1s}
+.suggestion-item:last-child{border-bottom:none}
+.suggestion-item:hover,.suggestion-item.active{background:var(--surface2)}
+.suggestion-icon{font-size:13px;flex-shrink:0;margin-top:1px}
+.suggestion-main{font-weight:500;color:var(--text)}
+.suggestion-sub{color:var(--muted);font-size:10px;margin-top:1px}
+#stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:0.5px solid var(--border);flex-shrink:0}
+.stat-cell{padding:10px 8px;text-align:center;border-right:0.5px solid var(--border)}
+.stat-cell:last-child{border-right:none}
+.stat-num{font-size:20px;font-weight:600;line-height:1}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:2px}
+.s-green .stat-num{color:var(--green)}.s-yellow .stat-num{color:#c17900}.s-red .stat-num{color:var(--red)}
+#filter-bar{padding:8px 10px;border-bottom:0.5px solid var(--border);display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0}
+.filter-pill{font-size:11px;padding:3px 9px;border-radius:20px;border:0.5px solid var(--border2);cursor:pointer;background:none;font-family:var(--font);color:var(--muted);transition:all 0.12s}
+.filter-pill.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+#terreno-list{flex:1;overflow-y:auto;padding:6px}
+.t-item{padding:9px 11px;border-radius:var(--radius);border:0.5px solid var(--border);margin-bottom:5px;cursor:pointer;transition:all 0.12s}
+.t-item:hover{border-color:var(--border2);background:var(--surface2)}
+.t-item.selected{border-color:var(--navy);background:#f0f5fb}
+.t-item-top{display:flex;align-items:center;gap:7px}
+.t-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.t-name{font-size:13px;font-weight:500;flex:1;line-height:1.3}
+.t-badge{font-size:10px;padding:1px 7px;border-radius:10px;font-weight:500;flex-shrink:0}
+.t-meta{font-size:11px;color:var(--muted);margin-top:3px;padding-left:16px;display:flex;gap:8px;flex-wrap:wrap}
+#empty-list{padding:28px 14px;text-align:center;color:var(--muted);font-size:13px;display:none}
+#btn-new{margin:8px 10px 10px;padding:9px;font-size:13px;font-weight:500;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-family:var(--font);flex-shrink:0}
+#btn-new:hover{background:var(--accent)}
+#detail-panel{position:absolute;inset:0;background:var(--surface);z-index:200;display:none;flex-direction:column;overflow:hidden}
+#detail-panel.open{display:flex}
+#detail-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:2px solid var(--navy);flex-shrink:0;background:#f0f5fb}
+.btn-back{background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);padding:0 4px;line-height:1;flex-shrink:0}
+#detail-name{font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-edit{background:var(--green);border:none;border-radius:7px;flex-shrink:0;padding:5px 12px;font-size:11px;cursor:pointer;color:#fff;font-family:var(--font);font-weight:600}
+#detail-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+#detail-body{padding:12px 14px;flex:1}
+.d-row{margin-bottom:12px}
+.d-label{font-size:10px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:3px}
+.d-value{font-size:13px;color:var(--text);line-height:1.5}
+.btn-ir-mapa{display:flex;align-items:center;gap:5px;background:none;border:0.5px solid var(--border2);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;color:var(--accent);font-family:var(--font);margin-left:auto}
+.btn-delete{margin:0 14px 14px;padding:9px;background:none;border:0.5px solid var(--red-border);border-radius:var(--radius);color:var(--red);font-size:13px;font-family:var(--font);cursor:pointer;width:calc(100% - 28px)}
+.btn-delete:hover{background:var(--red-bg)}
+#map-container{flex:1;position:relative}
+#map{width:100%;height:100%}
+#map-tools{position:absolute;top:12px;right:12px;z-index:400;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+.map-btn{background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius);padding:7px 12px;font-size:12px;font-family:var(--font);font-weight:500;cursor:pointer;color:var(--text);white-space:nowrap;box-shadow:var(--shadow)}
+.map-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.map-btn.danger{color:var(--red);border-color:var(--red-border)}
+#draw-hint{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(15,61,110,0.88);color:#fff;padding:6px 16px;border-radius:20px;font-size:12px;z-index:400;pointer-events:none;display:none;white-space:nowrap}
+#draw-hint.show{display:block}
+#legend{position:absolute;bottom:12px;left:12px;z-index:400;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius);padding:10px 14px;box-shadow:var(--shadow)}
+.leg-row{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);margin-bottom:5px}
+.leg-row:last-child{margin-bottom:0}
+.leg-sq{width:13px;height:13px;border-radius:3px}
+.poly-tooltip{background:rgba(15,61,110,0.90)!important;color:#fff!important;border:none!important;border-radius:8px!important;padding:6px 10px!important;font-size:12px!important}
+.poly-tooltip::before{display:none!important}
+.leaflet-tooltip{white-space:normal!important}
+#form-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:600;display:none;align-items:flex-end}
+#form-overlay.open{display:flex}
+#form-sheet{background:var(--surface);border-radius:16px 16px 0 0;width:100%;padding:20px 20px 32px;max-height:92vh;overflow-y:auto;animation:slideUp 0.22s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+#form-sheet h3{font-size:15px;font-weight:600;margin-bottom:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-full{grid-column:1/-1}
+.f-label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+.f-input{width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:8px;font-size:13px;font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color 0.12s}
+.f-input:focus{border-color:var(--navy)}
+textarea.f-input{resize:none;height:60px}
+.form-actions{display:flex;gap:10px;margin-top:16px}
+.btn-primary{flex:1;padding:10px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-family:var(--font);font-weight:500;cursor:pointer}
+.btn-secondary{padding:10px 18px;background:none;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;font-family:var(--font);cursor:pointer;color:var(--muted)}
+#toast{position:fixed;bottom:24px;right:24px;z-index:9000;background:#1a1a18;color:#fff;padding:10px 18px;border-radius:var(--radius);font-size:13px;opacity:0;transition:opacity 0.2s;pointer-events:none}
+#toast.show{opacity:1}
+#toast.success{background:var(--green)}
+#toast.error{background:var(--red)}
+#loading-overlay{position:fixed;inset:0;background:rgba(247,246,243,0.85);z-index:800;display:none;align-items:center;justify-content:center}
+#loading-overlay.show{display:flex}
+.spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--navy);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#mobile-toggle{display:none;position:absolute;bottom:12px;right:12px;z-index:400;background:var(--navy);color:#fff;border:none;border-radius:24px;padding:10px 16px;font-size:13px;font-family:var(--font);font-weight:500;cursor:pointer;box-shadow:var(--shadow)}
+@media(max-width:700px){
+  #app{flex-direction:column}
+  #sidebar{width:100%;height:240px;border-right:none;border-top:0.5px solid var(--border);position:absolute;bottom:0;left:0;right:0;top:auto;transition:transform 0.25s ease}
+  #sidebar.hidden{transform:translateY(calc(100% - 44px))}
+  #map-container{position:absolute;top:0;left:0;right:0;bottom:240px}
+  #mobile-toggle{display:block}
+  #detail-panel{position:fixed;inset:52px 0 0;z-index:300}
+}
 </style>
 </head>
 <body>
 
-<!-- AUTH -->
 <div id="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">🗺️</div>
@@ -361,51 +149,31 @@
       </svg>
       Iniciar sesión con Microsoft
     </button>
-    <p id="auth-error">Error al iniciar sesión. Intenta de nuevo.</p>
   </div>
 </div>
 
-<!-- TOPBAR -->
 <div id="topbar" style="display:none">
-  <div>
-    <div class="app-name">Mapas Desarrollos</div>
-    <div class="app-sub">Celaque · Gestión de terrenos · v15</div>
-  </div>
-  <span id="sync-indicator">⟳ Sincronizando...</span>
-  <div id="user-chip">
-    <div id="user-avatar">--</div>
-    <span id="user-name">Cargando...</span>
-  </div>
+  <div><div class="app-name">Mapas Desarrollos</div><div class="app-sub">Celaque · v16</div></div>
+  <span id="sync-indicator">⟳ Guardando...</span>
+  <div id="user-chip"><div id="user-avatar">--</div><span id="user-name">...</span></div>
   <button id="btn-logout">Salir</button>
 </div>
 
-<!-- APP -->
 <div id="app" style="display:none">
-
-  <!-- SIDEBAR -->
   <div id="sidebar">
     <div id="sidebar-inner">
-      <div id="stats-row">
-        <div class="stat-cell s-green">
-          <div class="stat-num" id="cnt-c">0</div>
-          <div class="stat-lbl">Comprados</div>
-        </div>
-        <div class="stat-cell s-yellow">
-          <div class="stat-num" id="cnt-p">0</div>
-          <div class="stat-lbl">Posibles</div>
-        </div>
-        <div class="stat-cell s-red">
-          <div class="stat-num" id="cnt-d">0</div>
-          <div class="stat-lbl">Descartados</div>
-        </div>
-      </div>
       <div id="search-bar">
         <div class="search-row">
           <span class="search-lbl" id="search-mode-icon">🔍</span>
-          <input id="search-city" type="text" placeholder="Ciudad o lat, lng..." autocomplete="off" />
-          <button id="search-clear-btn" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;display:none">✕</button>
+          <input id="search-input" type="text" placeholder="Ciudad, lugar o lat, lng..." autocomplete="off"/>
+          <button id="search-clear-btn">✕</button>
         </div>
         <div id="search-suggestions"></div>
+      </div>
+      <div id="stats-row">
+        <div class="stat-cell s-green"><div class="stat-num" id="cnt-c">0</div><div class="stat-lbl">Comprados</div></div>
+        <div class="stat-cell s-yellow"><div class="stat-num" id="cnt-p">0</div><div class="stat-lbl">Posibles</div></div>
+        <div class="stat-cell s-red"><div class="stat-num" id="cnt-d">0</div><div class="stat-lbl">Descartados</div></div>
       </div>
       <div id="filter-bar">
         <button class="filter-pill active" data-f="todos">Todos</button>
@@ -414,7 +182,7 @@
         <button class="filter-pill" data-f="descartado">Descartados</button>
       </div>
       <div id="terreno-list"></div>
-      <div id="empty-list">No hay terrenos registrados.<br>Dibuja un polígono en el mapa.</div>
+      <div id="empty-list">No hay terrenos.<br>Dibuja un polígono en el mapa.</div>
       <div id="detail-panel">
         <div id="detail-head">
           <button class="btn-back" id="detail-back">←</button>
@@ -429,8 +197,6 @@
       <button id="btn-new">＋ Nuevo terreno</button>
     </div>
   </div>
-
-  <!-- MAP -->
   <div id="map-container">
     <div id="map"></div>
     <div id="map-tools">
@@ -438,7 +204,7 @@
       <button class="map-btn active" id="btn-save-poly" style="display:none">✔ Guardar polígono</button>
       <button class="map-btn danger" id="btn-cancel-draw" style="display:none">✕ Cancelar</button>
     </div>
-    <div id="draw-hint">Haz clic para agregar puntos · Mínimo 3 puntos</div>
+    <div id="draw-hint">Clic para agregar puntos · Mín. 3 puntos</div>
     <div id="legend">
       <div class="leg-row"><div class="leg-sq" style="background:#388e3c"></div>Comprado</div>
       <div class="leg-row"><div class="leg-sq" style="background:#f9a825"></div>Posible compra</div>
@@ -448,53 +214,25 @@
   </div>
 </div>
 
-<!-- FORM -->
 <div id="form-overlay">
   <div id="form-sheet">
     <h3 id="form-title">Registrar terreno</h3>
     <div class="form-grid">
-      <div>
-        <label class="f-label">Nombre / ID *</label>
-        <input class="f-input" id="f-nombre" type="text" placeholder="Ej: Lote A-12" />
-      </div>
-      <div>
-        <label class="f-label">Estado *</label>
-        <select class="f-input select-estado" id="f-estado">
+      <div><label class="f-label">Nombre / ID *</label><input class="f-input" id="f-nombre" type="text" placeholder="Ej: Lote A-12"/></div>
+      <div><label class="f-label">Estado *</label>
+        <select class="f-input" id="f-estado">
           <option value="comprado">🟢 Comprado</option>
-          <option value="posible">🟡 Posible compra</option>
+          <option value="posible" selected>🟡 Posible compra</option>
           <option value="descartado">🔴 Descartado</option>
         </select>
       </div>
-      <div>
-        <label class="f-label">Área (v²)</label>
-        <input class="f-input" id="f-area" type="number" step="0.01" placeholder="0.00" />
-      </div>
-      <div>
-        <label class="f-label">Precio por v² ($)</label>
-        <input class="f-input" id="f-precio" type="number" step="0.01" placeholder="0.00" oninput="calcPrecioVara()" />
-      </div>
-      <div>
-        <label class="f-label">Total calculado</label>
-        <input class="f-input" id="f-precio-vara" type="text" placeholder="Auto" readonly style="background:var(--surface2);color:var(--muted)" />
-      </div>
-
-      <div>
-        <label class="f-label">Propietario</label>
-        <input class="f-input" id="f-propietario" type="text" placeholder="Nombre del propietario" />
-      </div>
-      <div>
-        <label class="f-label">Agente</label>
-        <input class="f-input" id="f-agente" type="text" placeholder="Nombre del agente" />
-      </div>
-      <div>
-        <label class="f-label">Fecha</label>
-        <input class="f-input" id="f-fecha" type="date" />
-      </div>
-      <div class="form-full">
-        <label class="f-label">Notas</label>
-        <textarea class="f-input" id="f-notas" placeholder="Observaciones, estado legal, acceso..."></textarea>
-      </div>
-
+      <div><label class="f-label">Área (v²)</label><input class="f-input" id="f-area" type="number" step="0.01" placeholder="0"/></div>
+      <div><label class="f-label">Precio por v² ($)</label><input class="f-input" id="f-precio" type="number" step="0.01" placeholder="0.00"/></div>
+      <div class="form-full"><label class="f-label">Total calculado</label><input class="f-input" id="f-total" type="text" readonly style="background:var(--surface2);color:var(--muted)"/></div>
+      <div><label class="f-label">Propietario</label><input class="f-input" id="f-propietario" type="text" placeholder="Nombre del propietario"/></div>
+      <div><label class="f-label">Agente</label><input class="f-input" id="f-agente" type="text" placeholder="Nombre del agente"/></div>
+      <div><label class="f-label">Fecha</label><input class="f-input" id="f-fecha" type="date"/></div>
+      <div class="form-full"><label class="f-label">Notas</label><textarea class="f-input" id="f-notas" placeholder="Observaciones..."></textarea></div>
     </div>
     <div class="form-actions">
       <button class="btn-primary" id="btn-guardar">Guardar en SharePoint</button>
@@ -506,765 +244,492 @@
 <div id="loading-overlay"><div class="spinner"></div></div>
 <div id="toast"></div>
 
-<!-- SCRIPTS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.11.1/lib/msal-browser.min.js"></script>
 <script>
-// ══════════════════════════════════════════
-//  CONFIGURACIÓN
-// ══════════════════════════════════════════
-const CONFIG = {
-  clientId:   'f47c56bb-e849-4612-9710-215b64b18713',
-  tenantId:   'deb13623-4618-4c6b-a268-3d5e4dec1c30',
+var CONFIG = {
+  clientId:'f47c56bb-e849-4612-9710-215b64b18713',
+  tenantId:'deb13623-4618-4c6b-a268-3d5e4dec1c30',
   redirectUri: window.location.origin + window.location.pathname,
-  siteUrl:    'https://celaque1.sharepoint.com/sites/Desarrollos',
-  listName:   'Mapas Desarrollos',
-  graphBase:  'https://graph.microsoft.com/v1.0',
+  siteHostname:'celaque1.sharepoint.com',
+  sitePath:'/sites/Desarrollos',
+  listName:'Mapas Desarrollos',
+  graphBase:'https://graph.microsoft.com/v1.0'
 };
-
-const ESTADO_STYLE = {
-  comprado:   { fill: '#388e3c', stroke: '#1b5e20', bg: '#e8f5e9', text: '#1b5e20' },
-  posible:    { fill: '#f9a825', stroke: '#c17900', bg: '#fff8e1', text: '#7a4f00' },
-  descartado: { fill: '#e53935', stroke: '#b71c1c', bg: '#ffebee', text: '#b71c1c' },
+var ESTADO_STYLE = {
+  comprado:{fill:'#388e3c',stroke:'#1b5e20',bg:'#e8f5e9',text:'#1b5e20'},
+  posible:{fill:'#f9a825',stroke:'#c17900',bg:'#fff8e1',text:'#7a4f00'},
+  descartado:{fill:'#e53935',stroke:'#b71c1c',bg:'#ffebee',text:'#b71c1c'}
 };
-const ESTADO_LABEL = { comprado: 'Comprado', posible: 'Posible compra', descartado: 'Descartado' };
+var ESTADO_LABEL = {comprado:'Comprado',posible:'Posible compra',descartado:'Descartado'};
 
-// ══════════════════════════════════════════
-//  MSAL
-// ══════════════════════════════════════════
-const msalConfig = {
-  auth: {
-    clientId: CONFIG.clientId,
-    authority: `https://login.microsoftonline.com/${CONFIG.tenantId}`,
-    redirectUri: CONFIG.redirectUri,
-  },
-  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
-};
-const msalInstance = new msal.PublicClientApplication(msalConfig);
-const SCOPES = ['Sites.ReadWrite.All', 'User.Read'];
+var msalInstance = new msal.PublicClientApplication({
+  auth:{clientId:CONFIG.clientId,authority:'https://login.microsoftonline.com/'+CONFIG.tenantId,redirectUri:CONFIG.redirectUri},
+  cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false}
+});
+var SCOPES = ['Sites.ReadWrite.All','User.Read'];
+var currentUser=null,siteId=null,listId=null,colMap={};
+var terrenos=[],layers={},activeFilter='todos';
+var drawMode=false,drawPoints=[],drawLine=null,drawMarkers=[];
+var pendingCoords=null,editingId=null,selectedId=null;
+var searchPin=null,activeSuggestion=-1,cityDebounce=null;
+var map;
 
-let accessToken = null;
-let currentUser = null;
-let siteId = null;
-let listId = null;
-
-// ══════════════════════════════════════════
-//  STATE
-// ══════════════════════════════════════════
-let terrenos = [];
-let layers = {};
-let activeFilter = 'todos';
-let drawMode = false;
-let drawPoints = [];
-let drawLine = null;
-let drawMarkers = [];
-let pendingCoords = null;
-let editingId = null;
-let searchPin = null;
-let selectedId = null;
-
-// ══════════════════════════════════════════
-//  MAP INIT
-// ══════════════════════════════════════════
-let map;
-function initMap() {
-  map = L.map('map', { zoomControl: true, doubleClickZoom: false })
-          .setView([14.093, -87.202], 13);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 19
+// MAP
+function initMap(){
+  map=L.map('map',{zoomControl:true,doubleClickZoom:false}).setView([14.093,-87.202],13);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+    attribution:'© Esri, Maxar',maxZoom:19
   }).addTo(map);
-
-  map.on('click', onMapClick);
-  map.on('dblclick', onMapDblClick);
+  map.on('click',onMapClick);
+  map.on('dblclick',function(e){if(drawMode)L.DomEvent.stop(e);});
 }
 
-// ══════════════════════════════════════════
-//  AUTH
-// ══════════════════════════════════════════
-async function handleRedirect() {
-  try {
-    const result = await msalInstance.handleRedirectPromise();
-    if (result) setToken(result);
-  } catch(e) { console.error(e); }
+// AUTH
+async function handleRedirect(){
+  try{var r=await msalInstance.handleRedirectPromise();if(r)currentUser=r.account;}catch(e){console.error(e);}
+}
+async function getToken(){
+  var accounts=msalInstance.getAllAccounts();
+  if(!accounts.length)return null;
+  try{var r=await msalInstance.acquireTokenSilent({scopes:SCOPES,account:accounts[0]});return r.accessToken;}
+  catch(e){try{var r2=await msalInstance.acquireTokenPopup({scopes:SCOPES});return r2.accessToken;}catch(e2){return null;}}
 }
 
-async function login() {
-  try {
-    await msalInstance.loginRedirect({ scopes: SCOPES });
-  } catch(e) {
-    document.getElementById('auth-error').style.display = 'block';
-    console.error(e);
-  }
-}
-
-async function getToken() {
-  const accounts = msalInstance.getAllAccounts();
-  if (!accounts.length) return null;
-  try {
-    const res = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
-    return res.accessToken;
-  } catch(e) {
-    try {
-      const res = await msalInstance.acquireTokenPopup({ scopes: SCOPES });
-      return res.accessToken;
-    } catch(e2) { return null; }
-  }
-}
-
-function setToken(result) {
-  accessToken = result.accessToken;
-  currentUser = result.account;
-}
-
-// ══════════════════════════════════════════
-//  GRAPH API
-// ══════════════════════════════════════════
-async function graphGet(url) {
-  const token = await getToken();
-  const r = await fetch(CONFIG.graphBase + url, {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-  });
-  if (!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
+// GRAPH
+async function gFetch(url,method,body){
+  var token=await getToken();
+  var opts={method:method||'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};
+  if(body)opts.body=JSON.stringify(body);
+  var r=await fetch(CONFIG.graphBase+url,opts);
+  if(method==='DELETE'){if(!r.ok)throw new Error('Delete '+r.status);return;}
+  if(!r.ok)throw new Error('Graph '+r.status+': '+await r.text());
   return r.json();
 }
-
-async function graphPost(url, body) {
-  const token = await getToken();
-  const r = await fetch(CONFIG.graphBase + url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
-  return r.json();
+async function getSiteAndList(){
+  if(siteId&&listId)return;
+  var sd=await gFetch('/sites/'+CONFIG.siteHostname+':'+CONFIG.sitePath);
+  siteId=sd.id;
+  var ls=await gFetch('/sites/'+siteId+'/lists?$filter=displayName eq \''+CONFIG.listName+'\'');
+  if(!ls.value.length)throw new Error('Lista no encontrada');
+  listId=ls.value[0].id;
+  var cols=await gFetch('/sites/'+siteId+'/lists/'+listId+'/columns');
+  cols.value.forEach(function(c){colMap[c.displayName]=c.name;});
+  console.log('colMap',colMap);
 }
+function col(n){return colMap[n]||n;}
 
-async function graphPatch(url, body) {
-  const token = await getToken();
-  const r = await fetch(CONFIG.graphBase + url, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
-  return r.json();
-}
-
-async function graphDelete(url) {
-  const token = await getToken();
-  const r = await fetch(CONFIG.graphBase + url, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!r.ok) throw new Error(`Graph error ${r.status}`);
-}
-
-// Maps display name -> internal name for each column
-let colMap = {};
-
-async function getSiteAndList() {
-  if (siteId && listId) return;
-  const hostname = 'celaque1.sharepoint.com';
-  const sitePath = '/sites/Desarrollos';
-  const siteData = await graphGet(`/sites/${hostname}:${sitePath}`);
-  siteId = siteData.id;
-  const lists = await graphGet(`/sites/${siteId}/lists?$filter=displayName eq '${CONFIG.listName}'`);
-  if (!lists.value.length) throw new Error('Lista no encontrada en SharePoint');
-  listId = lists.value[0].id;
-
-  // Discover internal column names
-  const cols = await graphGet(`/sites/${siteId}/lists/${listId}/columns`);
-  cols.value.forEach(c => { colMap[c.displayName] = c.name; });
-  console.log('Column map:', colMap);
-}
-
-function col(displayName) {
-  return colMap[displayName] || displayName;
-}
-
-// ══════════════════════════════════════════
-//  CRUD
-// ══════════════════════════════════════════
-async function loadTerrenos() {
+// LOAD
+async function loadTerrenos(){
   showLoading(true);
-  try {
+  try{
     await getSiteAndList();
-    const data = await graphGet(
-      `/sites/${siteId}/lists/${listId}/items?expand=fields($select=Title,Nombre,Estado,Area,Precio,Propietario,Fecha,Notas,Coordenadas,Usuario,Agentes,id)&$top=500`
-    );
-    terrenos = data.value.map(item => {
-      const f = item.fields;
-      console.log('Item fields keys:', Object.keys(f).join(', '));
-      console.log('Coordenadas value:', f['Coordenadas'], '| col mapped:', f[col('Coordenadas')]);
-      // Try both display name and internal name for Coordenadas
-      const coordsRaw = f[col('Coordenadas')] || f['Coordenadas'] || f['coordenadas'] || '';
-      let coords = null;
-      if (coordsRaw && coordsRaw !== 'null' && coordsRaw.trim() !== '') {
-        try { coords = JSON.parse(coordsRaw); } catch(e) { console.warn('Coords parse error:', e, coordsRaw); }
-      }
-      const precio = f[col('Precio')] != null ? f[col('Precio')] : (f['Precio'] != null ? f['Precio'] : '');
-      const area   = f[col('Area')]   != null ? f[col('Area')]   : (f['Area']   != null ? f['Area']   : '');
-      return {
-        id:          item.id,
-        nombre:      f[col('Nombre')]      || f['Nombre']      || f.Title || '(sin nombre)',
-        estado:      (f[col('Estado')]     || f['Estado']      || 'posible').toLowerCase(),
-        area:        area !== '' ? parseFloat(area) : '',
-        precio:      precio !== '' ? parseFloat(precio) : '',
-        propietario: f[col('Propietario')] || f['Propietario'] || '',
-        agente:      f[col('Agentes')] || f[col('Agente')] || f['Agentes'] || f['Agente'] || '',
-        fecha:       (f[col('Fecha')]      || f['Fecha'])      ? (f[col('Fecha')] || f['Fecha']).split('T')[0] : '',
-        notas:       f[col('Notas')]       || f['Notas']       || '',
-        coordsRaw,
-        coords,
+    var data=await gFetch('/sites/'+siteId+'/lists/'+listId+'/items?expand=fields&$top=500');
+    terrenos=data.value.map(function(item){
+      var f=item.fields;
+      var cr=f[col('Coordenadas')]||f['Coordenadas']||'';
+      var coords=null;
+      if(cr&&cr!=='null'){try{coords=JSON.parse(cr);}catch(e){}}
+      var precio=f[col('Precio')]!=null?parseFloat(f[col('Precio')]):(f['Precio']!=null?parseFloat(f['Precio']):'');
+      var area=f[col('Area')]!=null?parseFloat(f[col('Area')]):(f['Area']!=null?parseFloat(f['Area']):'');
+      return{
+        id:item.id,
+        nombre:f[col('Nombre')]||f['Nombre']||f.Title||'(sin nombre)',
+        estado:(f[col('Estado')]||f['Estado']||'posible').toLowerCase(),
+        area:isNaN(area)?'':area,
+        precio:isNaN(precio)?'':precio,
+        propietario:f[col('Propietario')]||f['Propietario']||'',
+        agente:f[col('Agentes')]||f['Agentes']||f[col('Agente')]||f['Agente']||'',
+        fecha:(f[col('Fecha')]||f['Fecha'])?(f[col('Fecha')]||f['Fecha']).split('T')[0]:'',
+        notas:f[col('Notas')]||f['Notas']||'',
+        coordsRaw:cr,coords:coords
       };
     });
     renderAll();
-    toast('Datos cargados', 'success');
-  } catch(e) {
-    toast('Error al cargar datos: ' + e.message, 'error');
-    console.error(e);
-  } finally { showLoading(false); }
+    toast('Datos cargados','success');
+  }catch(e){toast('Error: '+e.message,'error');console.error(e);}
+  finally{showLoading(false);}
 }
 
-async function saveTerreno(fields, coords, forcedId = null) {
+// SAVE
+async function saveTerreno(fields,coords,forcedId){
   showSync(true);
-  try {
+  try{
     await getSiteAndList();
-    const coordStr = coords ? JSON.stringify(coords) : '';
-    const bodyFields = {
-      Title: fields.nombre,
-    };
-    bodyFields[col('Nombre')]      = fields.nombre;
-    bodyFields[col('Estado')]      = fields.estado;
-    bodyFields[col('Area')]        = fields.area ? parseFloat(fields.area) : null;
-    bodyFields[col('Precio')]      = fields.precio ? parseFloat(fields.precio) : null;
-    bodyFields[col('Propietario')] = fields.propietario || null;
-    // Try all possible internal names for Agentes column
-    const agenteKey = col('Agentes') || col('Agente') || 'Agentes';
-    bodyFields[agenteKey] = fields.agente || null;
-    console.log('Saving agente with key:', agenteKey, '=', fields.agente);
-    bodyFields[col('Fecha')]       = fields.fecha ? fields.fecha + 'T00:00:00Z' : null;
-    bodyFields[col('Notas')]       = fields.notas || null;
-    bodyFields[col('Coordenadas')] = coordStr;
-    if (currentUser) {
-      bodyFields[col('Usuario')] = currentUser.name || currentUser.username || '';
-    }
-    console.log('Saving fields:', JSON.stringify(bodyFields));
-    const body = { fields: bodyFields };
-    let item;
-    if (forcedId) {
-      item = await graphPatch(`/sites/${siteId}/lists/${listId}/items/${forcedId}`, body);
-      const idx = terrenos.findIndex(t => t.id === forcedId);
-      if (idx >= 0) {
-        terrenos[idx] = { ...terrenos[idx], ...fields, coords, coordsRaw: JSON.stringify(coords || []) };
-      }
-      toast('Terreno actualizado ✓', 'success');
-    } else {
-      item = await graphPost(`/sites/${siteId}/lists/${listId}/items`, body);
-      terrenos.push({ id: item.id, ...fields, coords, coordsRaw: JSON.stringify(coords || []) });
-      toast('Terreno guardado ✓', 'success');
+    var cs=coords?JSON.stringify(coords):'';
+    var bf={Title:fields.nombre};
+    bf[col('Nombre')]=fields.nombre;
+    bf[col('Estado')]=fields.estado;
+    bf[col('Area')]=fields.area?parseFloat(fields.area):null;
+    bf[col('Precio')]=fields.precio?parseFloat(fields.precio):null;
+    bf[col('Propietario')]=fields.propietario||null;
+    bf[col('Agentes')]=fields.agente||null;
+    bf[col('Fecha')]=fields.fecha?fields.fecha+'T00:00:00Z':null;
+    bf[col('Notas')]=fields.notas||null;
+    bf[col('Coordenadas')]=cs;
+    if(currentUser)bf[col('Usuario')]=currentUser.name||currentUser.username||'';
+    var body={fields:bf};
+    if(forcedId){
+      await gFetch('/sites/'+siteId+'/lists/'+listId+'/items/'+forcedId,'PATCH',body);
+      var idx=terrenos.findIndex(function(t){return t.id===forcedId;});
+      if(idx>=0)terrenos[idx]=Object.assign({},terrenos[idx],fields,{coords:coords,coordsRaw:cs});
+      toast('Actualizado ✓','success');
+    }else{
+      var item=await gFetch('/sites/'+siteId+'/lists/'+listId+'/items','POST',body);
+      terrenos.push(Object.assign({id:item.id},fields,{coords:coords,coordsRaw:cs}));
+      toast('Guardado ✓','success');
     }
     renderAll();
-  } catch(e) {
-    toast('Error al guardar: ' + e.message, 'error');
-    console.error(e);
-  } finally { showSync(false); }
+  }catch(e){toast('Error: '+e.message,'error');console.error(e);}
+  finally{showSync(false);}
 }
 
-async function deleteTerreno(id) {
-  if (!confirm('¿Eliminar este terreno? Esta acción no se puede deshacer.')) return;
+// DELETE
+async function deleteTerreno(id){
+  if(!confirm('¿Eliminar este terreno?'))return;
   showSync(true);
-  try {
+  try{
     await getSiteAndList();
-    await graphDelete(`/sites/${siteId}/lists/${listId}/items/${id}`);
-    terrenos = terrenos.filter(t => t.id !== id);
-    renderAll();
-    closeDetail();
-    toast('Terreno eliminado', 'success');
-  } catch(e) {
-    toast('Error al eliminar: ' + e.message, 'error');
-  } finally { showSync(false); }
+    await gFetch('/sites/'+siteId+'/lists/'+listId+'/items/'+id,'DELETE');
+    terrenos=terrenos.filter(function(t){return t.id!==id;});
+    renderAll();closeDetail();toast('Eliminado','success');
+  }catch(e){toast('Error: '+e.message,'error');}
+  finally{showSync(false);}
 }
 
-// ══════════════════════════════════════════
-//  RENDER
-// ══════════════════════════════════════════
-function renderAll() {
-  Object.values(layers).forEach(l => map.removeLayer(l));
-  layers = {};
-
-  terrenos.forEach(t => {
-    if (!t.coords || !t.coords.length) return;
-    const s = ESTADO_STYLE[t.estado] || ESTADO_STYLE.posible;
-    const poly = L.polygon(t.coords, {
-      color: s.stroke, fillColor: s.fill, fillOpacity: 0.35, weight: 2.5,
-      className: 'poly-' + t.estado
-    }).addTo(map);
-    poly.bindTooltip(`<b>${t.nombre}</b><br>${ESTADO_LABEL[t.estado]}${t.area !== '' ? '<br>' + Number(t.area).toLocaleString() + ' v²' : ''}${t.precio !== '' && t.precio != null ? '<br>$' + Number(t.precio).toLocaleString() + '/v²' : ''}${t.ciudad ? '<br>📍' + t.ciudad : ''}`, {
-      direction: 'center', permanent: false, className: 'poly-tooltip'
-    });
-    poly.on('mouseover', function() { this.setStyle({ fillOpacity: 0.6, weight: 3 }); });
-    poly.on('mouseout',  function() { this.setStyle({ fillOpacity: 0.35, weight: 2.5 }); });
-    poly.on('click', () => showDetail(t.id));
-    layers[t.id] = poly;
+// RENDER
+function renderAll(){
+  Object.values(layers).forEach(function(l){if(l&&map.hasLayer(l))map.removeLayer(l);});
+  layers={};
+  terrenos.forEach(function(t){
+    if(!t.coords||!t.coords.length)return;
+    var s=ESTADO_STYLE[t.estado]||ESTADO_STYLE.posible;
+    var poly=L.polygon(t.coords,{color:s.stroke,fillColor:s.fill,fillOpacity:0.35,weight:2.5}).addTo(map);
+    var tip='<b>'+t.nombre+'</b><br>'+ESTADO_LABEL[t.estado]
+      +(t.area!==''?'<br>'+Number(t.area).toLocaleString()+' v²':'')
+      +(t.precio!==''&&t.precio!=null?'<br>$'+Number(t.precio).toLocaleString()+'/v²':'');
+    poly.bindTooltip(tip,{direction:'center',className:'poly-tooltip'});
+    poly.on('mouseover',function(){this.setStyle({fillOpacity:0.6,weight:3});});
+    poly.on('mouseout',function(){this.setStyle({fillOpacity:0.35,weight:2.5});});
+    poly.on('click',function(){showDetail(t.id);});
+    layers[t.id]=poly;
   });
-
-  renderList();
-  updateStats();
+  renderList();updateStats();
 }
 
-function renderList() {
-  const el = document.getElementById('terreno-list');
-  const empty = document.getElementById('empty-list');
-  el.innerHTML = '';
-
-  const filtered = activeFilter === 'todos'
-    ? terrenos
-    : terrenos.filter(t => t.estado === activeFilter);
-
-  if (!filtered.length) { empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
-
-  filtered.forEach(t => {
-    const s = ESTADO_STYLE[t.estado] || ESTADO_STYLE.posible;
-    const div = document.createElement('div');
-    div.className = 'terreno-item' + (t.id === selectedId ? ' selected' : '');
-    div.dataset.id = t.id;
-    div.innerHTML = `
-      <div class="t-item-top">
-        <div class="t-dot" style="background:${s.fill}"></div>
-        <span class="t-name">${t.nombre}</span>
-        <span class="t-badge" style="background:${s.bg};color:${s.text}">${ESTADO_LABEL[t.estado]}</span>
-      </div>
-      <div class="t-meta">
-        ${t.area !== '' ? `<span>${Number(t.area).toLocaleString()} v²</span>` : ''}
-        ${t.precio !== '' ? `<span>$${Number(t.precio).toLocaleString()}</span>` : ''}
-        ${t.ciudad ? `<span>📍${t.ciudad}</span>` : ''}
-      </div>`;
-    div.onclick = () => showDetail(t.id);
+function renderList(){
+  var el=document.getElementById('terreno-list');
+  var empty=document.getElementById('empty-list');
+  el.innerHTML='';
+  var filtered=activeFilter==='todos'?terrenos:terrenos.filter(function(t){return t.estado===activeFilter;});
+  if(!filtered.length){empty.style.display='block';return;}
+  empty.style.display='none';
+  filtered.forEach(function(t){
+    var s=ESTADO_STYLE[t.estado]||ESTADO_STYLE.posible;
+    var div=document.createElement('div');
+    div.className='t-item'+(t.id===selectedId?' selected':'');
+    div.dataset.id=t.id;
+    div.innerHTML='<div class="t-item-top">'
+      +'<div class="t-dot" style="background:'+s.fill+'"></div>'
+      +'<span class="t-name">'+t.nombre+'</span>'
+      +'<span class="t-badge" style="background:'+s.bg+';color:'+s.text+'">'+ESTADO_LABEL[t.estado]+'</span>'
+      +'</div><div class="t-meta">'
+      +(t.area!==''?'<span>'+Number(t.area).toLocaleString()+' v²</span>':'')
+      +(t.precio!==''&&t.precio!=null?'<span>$'+Number(t.precio).toLocaleString()+'/v²</span>':'')
+      +'</div>';
+    div.onclick=function(){showDetail(t.id);};
     el.appendChild(div);
   });
 }
 
-function updateStats() {
-  document.getElementById('cnt-c').textContent = terrenos.filter(t => t.estado === 'comprado').length;
-  document.getElementById('cnt-p').textContent = terrenos.filter(t => t.estado === 'posible').length;
-  document.getElementById('cnt-d').textContent = terrenos.filter(t => t.estado === 'descartado').length;
+function updateStats(){
+  document.getElementById('cnt-c').textContent=terrenos.filter(function(t){return t.estado==='comprado';}).length;
+  document.getElementById('cnt-p').textContent=terrenos.filter(function(t){return t.estado==='posible';}).length;
+  document.getElementById('cnt-d').textContent=terrenos.filter(function(t){return t.estado==='descartado';}).length;
 }
 
-// ══════════════════════════════════════════
-//  DETAIL
-// ══════════════════════════════════════════
-function showDetail(id) {
-  const t = terrenos.find(x => x.id === id);
-  if (!t) return;
-  selectedId = id;
-
-  document.querySelectorAll('.terreno-item').forEach(el =>
-    el.classList.toggle('selected', el.dataset.id === id)
-  );
-  if (layers[id]) {
-    map.flyToBounds(layers[id].getBounds(), { padding: [60, 60], duration: 0.8 });
-    layers[id].setStyle({ fillOpacity: 0.65, weight: 3.5 });
-    setTimeout(() => { if(layers[id]) layers[id].setStyle({ fillOpacity: 0.35, weight: 2.5 }); }, 1800);
+// DETAIL
+function showDetail(id){
+  var t=terrenos.find(function(x){return x.id===id;});
+  if(!t)return;
+  selectedId=id;
+  document.querySelectorAll('.t-item').forEach(function(el){el.classList.toggle('selected',el.dataset.id===id);});
+  if(layers[id]){
+    map.flyToBounds(layers[id].getBounds(),{padding:[60,60],duration:0.8});
+    layers[id].setStyle({fillOpacity:0.65,weight:3.5});
+    setTimeout(function(){if(layers[id])layers[id].setStyle({fillOpacity:0.35,weight:2.5});},1800);
   }
-
-  const s = ESTADO_STYLE[t.estado] || ESTADO_STYLE.posible;
-  document.getElementById('detail-name').textContent = t.nombre;
-  const displayNotas = t.notas || '';
-  document.getElementById('detail-body').innerHTML = `
-    <div style="display:flex;align-items:center;margin-bottom:12px">
-      <span style="background:${s.bg};color:${s.text};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:500">${ESTADO_LABEL[t.estado]}</span>
-      ${t.coords ? `<button class="btn-ir-mapa" id="btn-fly-${id}">📍 Ver en mapa</button>` : ''}
-    </div>
-    ${t.area !== '' ? `<div class="d-row"><div class="d-label">Área</div><div class="d-value">${Number(t.area).toLocaleString()} m²</div></div>` : ''}
-    ${t.precio    ? `<div class="d-row"><div class="d-label">Precio</div><div class="d-value">L. ${t.precio}</div></div>` : ''}
-    ${t.propietario ? `<div class="d-row"><div class="d-label">Propietario</div><div class="d-value">${t.propietario}</div></div>` : ''}
-    ${t.fecha     ? `<div class="d-row"><div class="d-label">Fecha registro</div><div class="d-value">${t.fecha}</div></div>` : ''}
-    ${t.notas ? `<div class="d-row"><div class="d-label">Notas</div><div class="d-value">${t.notas}</div></div>` : ''}
-  `;
-  const flyBtn = document.getElementById('btn-fly-' + id);
-  if (flyBtn) flyBtn.onclick = () => {
-    if (layers[id]) {
-      map.flyToBounds(layers[id].getBounds(), { padding: [60, 60], duration: 0.8 });
-      layers[id].setStyle({ fillOpacity: 0.65, weight: 3.5 });
-      setTimeout(() => { if(layers[id]) layers[id].setStyle({ fillOpacity: 0.35, weight: 2.5 }); }, 1800);
-    } else { toast('Este terreno no tiene polígono en el mapa', 'error'); }
-  };
-  document.getElementById('detail-delete').onclick = () => deleteTerreno(id);
-  document.getElementById('detail-edit').onclick = () => openEditForm(id);
+  var s=ESTADO_STYLE[t.estado]||ESTADO_STYLE.posible;
+  document.getElementById('detail-name').textContent=t.nombre;
+  var total=(t.area!==''&&t.precio!==''&&t.precio!=null&&t.area>0)
+    ?'$'+(Number(t.precio)*Number(t.area)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})
+    :null;
+  document.getElementById('detail-body').innerHTML=
+    '<div style="display:flex;align-items:center;margin-bottom:12px">'
+    +'<span style="background:'+s.bg+';color:'+s.text+';padding:3px 10px;border-radius:10px;font-size:12px;font-weight:500">'+ESTADO_LABEL[t.estado]+'</span>'
+    +(t.coords?'<button class="btn-ir-mapa" id="btn-fly-'+id+'">📍 Ver en mapa</button>':'')
+    +'</div>'
+    +(t.area!==''?'<div class="d-row"><div class="d-label">Área</div><div class="d-value">'+Number(t.area).toLocaleString()+' v²</div></div>':'')
+    +(t.precio!==''&&t.precio!=null?'<div class="d-row"><div class="d-label">Precio por v²</div><div class="d-value" style="font-weight:600;color:#2e7d32">$'+Number(t.precio).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+' / v²</div></div>':'')
+    +(total?'<div class="d-row"><div class="d-label">Precio total</div><div class="d-value" style="font-weight:600">'+total+'</div></div>':'')
+    +(t.propietario?'<div class="d-row"><div class="d-label">Propietario</div><div class="d-value">'+t.propietario+'</div></div>':'')
+    +(t.agente?'<div class="d-row"><div class="d-label">Agente</div><div class="d-value">'+t.agente+'</div></div>':'')
+    +(t.fecha?'<div class="d-row"><div class="d-label">Fecha</div><div class="d-value">'+t.fecha+'</div></div>':'')
+    +(t.notas?'<div class="d-row"><div class="d-label">Notas</div><div class="d-value">'+t.notas+'</div></div>':'');
+  var flyBtn=document.getElementById('btn-fly-'+id);
+  if(flyBtn)flyBtn.onclick=function(){if(layers[id])map.flyToBounds(layers[id].getBounds(),{padding:[60,60],duration:0.8});};
+  document.getElementById('detail-delete').onclick=function(){deleteTerreno(id);};
+  document.getElementById('detail-edit').onclick=function(){openEditForm(id);};
   document.getElementById('detail-panel').classList.add('open');
 }
 
-function closeDetail() {
-  selectedId = null;
+function closeDetail(){
+  selectedId=null;
   document.getElementById('detail-panel').classList.remove('open');
-  document.querySelectorAll('.terreno-item').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.t-item').forEach(function(el){el.classList.remove('selected');});
 }
 
-// ══════════════════════════════════════════
-//  FORM
-// ══════════════════════════════════════════
-function openNewForm() {
-  if (!pendingCoords) {
-    toast('Primero dibuja un polígono en el mapa', 'error');
-    return;
-  }
-  editingId = null;
-  document.getElementById('form-title').textContent = 'Registrar terreno';
-  document.getElementById('f-nombre').value = '';
-  document.getElementById('f-estado').value = 'posible';
-  document.getElementById('f-area').value = '';
-  document.getElementById('f-precio').value = '';
-  document.getElementById('f-propietario').value = '';
-  document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
-  document.getElementById('f-notas').value = '';
-  document.getElementById('f-agente').value = '';
-  document.getElementById('f-precio-vara').value = '';
+// FORM
+function calcPrecioVara(){
+  var area=parseFloat(document.getElementById('f-area').value)||0;
+  var precio=parseFloat(document.getElementById('f-precio').value)||0;
+  document.getElementById('f-total').value=(area>0&&precio>0)?'Total: $'+(area*precio).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+}
+document.getElementById('f-area').addEventListener('input',calcPrecioVara);
+document.getElementById('f-precio').addEventListener('input',calcPrecioVara);
+
+function openNewForm(){
+  if(!pendingCoords){toast('Primero dibuja un polígono en el mapa','error');return;}
+  editingId=null;
+  document.getElementById('form-title').textContent='Registrar terreno';
+  ['f-nombre','f-area','f-precio','f-total','f-propietario','f-agente','f-notas'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('f-estado').value='posible';
+  document.getElementById('f-fecha').value=new Date().toISOString().split('T')[0];
   document.getElementById('form-overlay').classList.add('open');
 }
 
-function openEditForm(id) {
-  const t = terrenos.find(x => x.id === id);
-  if (!t) return;
-  editingId = id;
-  pendingCoords = t.coords;
-  document.getElementById('form-title').textContent = 'Editar terreno — ' + t.nombre;
-  document.getElementById('f-nombre').value = t.nombre;
-  document.getElementById('f-estado').value = t.estado;
-  document.getElementById('f-area').value = t.area;
-  document.getElementById('f-precio').value = t.precio || '';
-  document.getElementById('f-propietario').value = t.propietario || '';
-  document.getElementById('f-fecha').value = t.fecha || '';
-  document.getElementById('f-notas').value = t.notas || '';
-  document.getElementById('f-agente').value = t.agente || '';
+function openEditForm(id){
+  var t=terrenos.find(function(x){return x.id===id;});
+  if(!t)return;
+  editingId=id;pendingCoords=t.coords;
+  document.getElementById('form-title').textContent='Editar — '+t.nombre;
+  document.getElementById('f-nombre').value=t.nombre;
+  document.getElementById('f-estado').value=t.estado;
+  document.getElementById('f-area').value=t.area;
+  document.getElementById('f-precio').value=t.precio;
+  document.getElementById('f-propietario').value=t.propietario||'';
+  document.getElementById('f-agente').value=t.agente||'';
+  document.getElementById('f-fecha').value=t.fecha||'';
+  document.getElementById('f-notas').value=t.notas||'';
   calcPrecioVara();
   document.getElementById('detail-panel').classList.remove('open');
-  selectedId = null;
+  selectedId=null;
   document.getElementById('form-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('f-nombre').focus(), 100);
 }
 
-function closeForm(clearCoords = false) {
+function closeForm(clearCoords){
   document.getElementById('form-overlay').classList.remove('open');
-  if (clearCoords) {
-    pendingCoords = null;
-    if (layers['__preview__']) { map.removeLayer(layers['__preview__']); delete layers['__preview__']; }
-  }
-  editingId = null;
+  if(clearCoords){pendingCoords=null;if(layers['__preview__']){map.removeLayer(layers['__preview__']);delete layers['__preview__'];}}
+  editingId=null;
 }
 
-// ══════════════════════════════════════════
-//  DRAW
-// ══════════════════════════════════════════
-function startDraw() {
-  drawMode = true; drawPoints = [];
-  if (drawLine) { map.removeLayer(drawLine); drawLine = null; }
-  drawMarkers.forEach(m => map.removeLayer(m)); drawMarkers = [];
-  document.getElementById('btn-draw').style.display = 'none';
-  document.getElementById('btn-save-poly').style.display = 'none';
-  document.getElementById('btn-cancel-draw').style.display = 'block';
+// DRAW
+function startDraw(){
+  drawMode=true;drawPoints=[];
+  if(drawLine){map.removeLayer(drawLine);drawLine=null;}
+  drawMarkers.forEach(function(m){map.removeLayer(m);});drawMarkers=[];
+  document.getElementById('btn-draw').style.display='none';
+  document.getElementById('btn-save-poly').style.display='none';
+  document.getElementById('btn-cancel-draw').style.display='block';
   document.getElementById('draw-hint').classList.add('show');
-  map.getContainer().style.cursor = 'crosshair';
+  map.getContainer().style.cursor='crosshair';
 }
 
-function cancelDraw() {
-  drawMode = false; drawPoints = [];
-  if (drawLine) { map.removeLayer(drawLine); drawLine = null; }
-  drawMarkers.forEach(m => map.removeLayer(m)); drawMarkers = [];
-  pendingCoords = null;
-  document.getElementById('btn-draw').style.display = 'block';
-  document.getElementById('btn-save-poly').style.display = 'none';
-  document.getElementById('btn-cancel-draw').style.display = 'none';
+function cancelDraw(){
+  drawMode=false;drawPoints=[];
+  if(drawLine){map.removeLayer(drawLine);drawLine=null;}
+  drawMarkers.forEach(function(m){map.removeLayer(m);});drawMarkers=[];
+  pendingCoords=null;
+  document.getElementById('btn-draw').style.display='block';
+  document.getElementById('btn-save-poly').style.display='none';
+  document.getElementById('btn-cancel-draw').style.display='none';
   document.getElementById('draw-hint').classList.remove('show');
-  map.getContainer().style.cursor = '';
+  map.getContainer().style.cursor='';
 }
 
-function onMapClick(e) {
-  if (!drawMode) return;
-  drawPoints.push([e.latlng.lat, e.latlng.lng]);
-  const m = L.circleMarker(e.latlng, { radius: 5, color: '#0f3d6e', fillColor: '#0f3d6e', fillOpacity: 1, weight: 1 }).addTo(map);
-  drawMarkers.push(m);
-  if (drawLine) map.removeLayer(drawLine);
-  if (drawPoints.length > 1) {
-    drawLine = L.polyline(drawPoints, { color: '#0f3d6e', weight: 2, dashArray: '6,4' }).addTo(map);
-  }
-  if (drawPoints.length >= 3) {
-    document.getElementById('btn-save-poly').style.display = 'block';
-  }
-}
-
-function onMapDblClick(e) {
-  if (drawMode) L.DomEvent.stop(e);
-}
-
-function savePolygon() {
-  if (drawPoints.length < 3) { toast('Necesitas al menos 3 puntos', 'error'); return; }
-  pendingCoords = [...drawPoints];
-  if (drawLine) { map.removeLayer(drawLine); drawLine = null; }
-  drawMarkers.forEach(m => map.removeLayer(m)); drawMarkers = [];
-  drawMode = false;
-  document.getElementById('btn-draw').style.display = 'block';
-  document.getElementById('btn-save-poly').style.display = 'none';
-  document.getElementById('btn-cancel-draw').style.display = 'none';
+function savePolygon(){
+  if(drawPoints.length<3){toast('Necesitas al menos 3 puntos','error');return;}
+  pendingCoords=drawPoints.slice();
+  if(drawLine){map.removeLayer(drawLine);drawLine=null;}
+  drawMarkers.forEach(function(m){map.removeLayer(m);});drawMarkers=[];
+  drawMode=false;
+  document.getElementById('btn-draw').style.display='block';
+  document.getElementById('btn-save-poly').style.display='none';
+  document.getElementById('btn-cancel-draw').style.display='none';
   document.getElementById('draw-hint').classList.remove('show');
-  map.getContainer().style.cursor = '';
-  // Draw preview polygon
-  const s = ESTADO_STYLE.posible;
-  if (layers['__preview__']) map.removeLayer(layers['__preview__']);
-  const preview = L.polygon(pendingCoords, { color: s.stroke, fillColor: s.fill, fillOpacity: 0.3, weight: 2, dashArray: '5,5' }).addTo(map);
-  layers['__preview__'] = preview;
-  console.log('savePolygon: pendingCoords set to', pendingCoords.length, 'points');
+  map.getContainer().style.cursor='';
+  if(layers['__preview__'])map.removeLayer(layers['__preview__']);
+  var s=ESTADO_STYLE.posible;
+  layers['__preview__']=L.polygon(pendingCoords,{color:s.stroke,fillColor:s.fill,fillOpacity:0.3,weight:2,dashArray:'5,5'}).addTo(map);
   openNewForm();
 }
 
-// ══════════════════════════════════════════
-//  UI HELPERS
-// ══════════════════════════════════════════
-function showLoading(v) {
-  document.getElementById('loading-overlay').style.display = v ? 'flex' : 'none';
-}
-function showSync(v) {
-  document.getElementById('sync-indicator').classList.toggle('show', v);
-}
-function toast(msg, type='') {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'show ' + type;
-  setTimeout(() => el.className = '', 2800);
+function onMapClick(e){
+  if(!drawMode)return;
+  drawPoints.push([e.latlng.lat,e.latlng.lng]);
+  var m=L.circleMarker(e.latlng,{radius:5,color:'#0f3d6e',fillColor:'#0f3d6e',fillOpacity:1,weight:1}).addTo(map);
+  drawMarkers.push(m);
+  if(drawLine)map.removeLayer(drawLine);
+  if(drawPoints.length>1)drawLine=L.polyline(drawPoints,{color:'#0f3d6e',weight:2,dashArray:'6,4'}).addTo(map);
+  if(drawPoints.length>=3)document.getElementById('btn-save-poly').style.display='block';
 }
 
-// ══════════════════════════════════════════
-//  HELPERS
-// ══════════════════════════════════════════
-function calcPrecioVara() {
-  const area      = parseFloat(document.getElementById('f-area').value)  || 0;
-  const precioV2  = parseFloat(document.getElementById('f-precio').value) || 0;
-  const el = document.getElementById('f-precio-vara');
-  if (area > 0 && precioV2 > 0) {
-    const total = area * precioV2;
-    el.value = 'Total: $' + total.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-  } else {
-    el.value = '';
-  }
-}
-
-// Search: by city name OR by lat,lng coordinates
-let activeSuggestion = -1;
-
-// ── COORDINATE SEARCH — auto on input ──
-// Coordinate detection is handled inside the unified search-city input listener below
-
-// ── CITY SEARCH — Photon geocoder (no CORS issues) ──
-let cityDebounce = null;
-
-document.getElementById('search-city').addEventListener('input', function() {
-  const q = this.value.trim();
-  clearTimeout(cityDebounce);
-  hideSuggestions();
-  const clearBtn = document.getElementById('search-clear-btn');
-  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
-  if (!q) {
-    if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
-    document.getElementById('search-mode-icon').textContent = '🔍';
-    return;
-  }
-  // Check if it looks like coordinates
-  const parts = q.split(',');
-  if (parts.length === 2) {
-    const lat = parseFloat(parts[0].trim());
-    const lng = parseFloat(parts[1].trim());
-    if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
-      document.getElementById('search-mode-icon').textContent = '📍';
-      if (searchPin) map.removeLayer(searchPin);
-      searchPin = L.marker([lat, lng], {
-        icon: L.divIcon({
-          html: '<div style="width:16px;height:16px;background:#e53935;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>',
-          className: '', iconAnchor: [8,8]
-        })
-      }).addTo(map);
-      searchPin.bindPopup('<b>📍</b> ' + lat.toFixed(6) + ', ' + lng.toFixed(6)).openPopup();
-      map.flyTo([lat, lng], 17, { duration: 1 });
-      return;
+// SEARCH
+document.getElementById('search-input').addEventListener('input',function(){
+  var q=this.value.trim();
+  document.getElementById('search-clear-btn').style.display=q?'block':'none';
+  clearTimeout(cityDebounce);hideSuggestions();
+  if(!q){document.getElementById('search-mode-icon').textContent='🔍';if(searchPin){map.removeLayer(searchPin);searchPin=null;}return;}
+  var parts=q.split(',');
+  if(parts.length===2){
+    var lat=parseFloat(parts[0].trim()),lng=parseFloat(parts[1].trim());
+    if(!isNaN(lat)&&!isNaN(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180){
+      document.getElementById('search-mode-icon').textContent='📍';
+      if(searchPin)map.removeLayer(searchPin);
+      searchPin=L.marker([lat,lng],{icon:L.divIcon({html:'<div style="width:16px;height:16px;background:#e53935;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>',className:'',iconAnchor:[8,8]})}).addTo(map);
+      searchPin.bindPopup('<b>📍</b> '+lat.toFixed(6)+', '+lng.toFixed(6)).openPopup();
+      map.flyTo([lat,lng],17,{duration:1});return;
     }
   }
-  // Otherwise treat as city/place search
-  document.getElementById('search-mode-icon').textContent = '🔍';
-  cityDebounce = setTimeout(function() { fetchPhoton(q); }, 400);
+  document.getElementById('search-mode-icon').textContent='🔍';
+  cityDebounce=setTimeout(function(){fetchPhoton(q);},450);
 });
 
-document.getElementById('search-city').addEventListener('keydown', function(e) {
-  const items = document.querySelectorAll('.suggestion-item');
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    activeSuggestion = Math.min(activeSuggestion + 1, items.length - 1);
-    items.forEach(function(el, i) { el.classList.toggle('active', i === activeSuggestion); });
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    activeSuggestion = Math.max(activeSuggestion - 1, 0);
-    items.forEach(function(el, i) { el.classList.toggle('active', i === activeSuggestion); });
-  } else if (e.key === 'Enter') {
-    if (activeSuggestion >= 0 && items[activeSuggestion]) {
-      items[activeSuggestion].dispatchEvent(new MouseEvent('mousedown'));
-    }
-  } else if (e.key === 'Escape') {
-    hideSuggestions();
-    document.getElementById('search-city').value = '';
-    document.getElementById('search-mode-icon').textContent = '🔍';
-    if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
-  }
+document.getElementById('search-input').addEventListener('keydown',function(e){
+  var items=document.querySelectorAll('.suggestion-item');
+  if(e.key==='ArrowDown'){e.preventDefault();activeSuggestion=Math.min(activeSuggestion+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('active',i===activeSuggestion);});}
+  else if(e.key==='ArrowUp'){e.preventDefault();activeSuggestion=Math.max(activeSuggestion-1,0);items.forEach(function(el,i){el.classList.toggle('active',i===activeSuggestion);});}
+  else if(e.key==='Enter'&&activeSuggestion>=0&&items[activeSuggestion]){items[activeSuggestion].dispatchEvent(new MouseEvent('mousedown'));}
+  else if(e.key==='Escape'){this.value='';document.getElementById('search-clear-btn').style.display='none';document.getElementById('search-mode-icon').textContent='🔍';hideSuggestions();if(searchPin){map.removeLayer(searchPin);searchPin=null;}}
 });
+document.getElementById('search-input').addEventListener('blur',function(){setTimeout(hideSuggestions,180);});
+document.getElementById('search-clear-btn').onclick=function(){
+  document.getElementById('search-input').value='';
+  document.getElementById('search-clear-btn').style.display='none';
+  document.getElementById('search-mode-icon').textContent='🔍';
+  hideSuggestions();if(searchPin){map.removeLayer(searchPin);searchPin=null;}
+};
 
-document.getElementById('search-city').addEventListener('blur', function() {
-  setTimeout(hideSuggestions, 180);
-});
-
-function fetchPhoton(query) {
-  // Photon: open geocoder by Komoot, no API key, CORS friendly
-  const url = 'https://photon.komoot.io/api/?q=' + encodeURIComponent(query)
-    + '&limit=6&lang=es&bbox=-92.0,13.0,-83.0,16.5'; // bbox Honduras
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.features && data.features.length) {
-        showSuggestions(data.features);
-      } else {
-        // fallback: search without bbox
-        fetch('https://photon.komoot.io/api/?q=' + encodeURIComponent(query) + '&limit=5&lang=es')
-          .then(function(r) { return r.json(); })
-          .then(function(d) { if (d.features) showSuggestions(d.features); })
-          .catch(function() {});
-      }
-    })
-    .catch(function() { toast('Sin conexión para buscar', ''); });
+function fetchPhoton(query){
+  fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(query)+'&limit=6&lang=es&bbox=-92.0,13.0,-83.0,16.5')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.features&&data.features.length){showSuggestions(data.features);}
+      else{fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(query)+'&limit=5&lang=es').then(function(r){return r.json();}).then(function(d){if(d.features&&d.features.length)showSuggestions(d.features);}).catch(function(){});}
+    }).catch(function(){});
 }
 
-function showSuggestions(features) {
-  const el = document.getElementById('search-suggestions');
-  el.innerHTML = ''; activeSuggestion = -1;
-  if (!features.length) { hideSuggestions(); return; }
-  const input = document.getElementById('search-city');
-  const rect = input.getBoundingClientRect();
-  el.style.top   = (rect.bottom + 4) + 'px';
-  el.style.left  = rect.left + 'px';
-  el.style.width = rect.width + 'px';
-  features.forEach(function(f) {
-    const p = f.properties;
-    const main = p.name || p.city || p.state || '';
-    const parts = [p.city, p.state, p.country].filter(Boolean);
-    const sub = parts.slice(p.name ? 0 : 1).join(', ');
-    const type = p.osm_value || '';
-    const icon = (type === 'city' || type === 'town' || type === 'village') ? '🏙️'
-               : type === 'residential' ? '🏘️'
-               : type === 'administrative' ? '📍' : '📌';
-    const div = document.createElement('div');
-    div.className = 'suggestion-item';
-    div.innerHTML = '<span class="suggestion-icon">' + icon + '</span>'
-      + '<div><div class="suggestion-main">' + main + '</div>'
-      + '<div class="suggestion-sub">' + sub + '</div></div>';
-    div.addEventListener('mousedown', function(e) {
+function showSuggestions(features){
+  var el=document.getElementById('search-suggestions');
+  el.innerHTML='';activeSuggestion=-1;
+  if(!features.length){hideSuggestions();return;}
+  var input=document.getElementById('search-input');
+  var rect=input.getBoundingClientRect();
+  el.style.top=(rect.bottom+4)+'px';el.style.left=rect.left+'px';el.style.width=rect.width+'px';
+  features.forEach(function(f){
+    var p=f.properties;
+    var main=p.name||p.city||p.state||'';
+    var sub=[p.city,p.state,p.country].filter(Boolean).join(', ');
+    var type=p.osm_value||'';
+    var icon=(type==='city'||type==='town'||type==='village')?'🏙️':'📍';
+    var div=document.createElement('div');
+    div.className='suggestion-item';
+    div.innerHTML='<span class="suggestion-icon">'+icon+'</span><div><div class="suggestion-main">'+main+'</div><div class="suggestion-sub">'+sub+'</div></div>';
+    div.addEventListener('mousedown',function(e){
       e.preventDefault();
-      const coords = f.geometry.coordinates; // [lng, lat]
-      const lat = coords[1], lng = coords[0];
-      document.getElementById('search-city').value = main;
+      var coords=f.geometry.coordinates;
+      var lat=coords[1],lng=coords[0];
+      document.getElementById('search-input').value=main;
+      document.getElementById('search-clear-btn').style.display='block';
       hideSuggestions();
-      if (searchPin) map.removeLayer(searchPin);
-      searchPin = L.marker([lat, lng], {
-        icon: L.divIcon({
-          html: '<div style="display:flex;flex-direction:column;align-items:center"><div style="width:14px;height:14px;background:#0f3d6e;border:2.5px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.45)"></div><div style="width:2px;height:8px;background:#0f3d6e;margin-top:1px"></div></div>',
-          className: '', iconAnchor: [8, 22]
-        })
-      }).addTo(map);
-      searchPin.bindPopup('<b>📍 ' + main + '</b>').openPopup();
-      map.flyTo([lat, lng], 14, { duration: 1.2 });
+      if(searchPin)map.removeLayer(searchPin);
+      searchPin=L.marker([lat,lng],{icon:L.divIcon({html:'<div style="display:flex;flex-direction:column;align-items:center"><div style="width:14px;height:14px;background:#0f3d6e;border:2.5px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.45)"></div><div style="width:2px;height:8px;background:#0f3d6e"></div></div>',className:'',iconAnchor:[8,22]})}).addTo(map);
+      searchPin.bindPopup('<b>📍 '+main+'</b>').openPopup();
+      map.flyTo([lat,lng],14,{duration:1.2});
     });
     el.appendChild(div);
   });
   el.classList.add('open');
 }
 
-function hideSuggestions() {
-  document.getElementById('search-suggestions').classList.remove('open');
-  activeSuggestion = -1;
-}
+function hideSuggestions(){document.getElementById('search-suggestions').classList.remove('open');activeSuggestion=-1;}
 
-// Area input also recalculates  price/vara
-document.getElementById('f-area').addEventListener('input', calcPrecioVara);
+// HELPERS
+function showLoading(v){document.getElementById('loading-overlay').style.display=v?'flex':'none';}
+function showSync(v){document.getElementById('sync-indicator').classList.toggle('show',v);}
+function toast(msg,type){var el=document.getElementById('toast');el.textContent=msg;el.className='show '+(type||'');setTimeout(function(){el.className='';},2800);}
 
-document.getElementById('btn-draw').onclick = startDraw;
-document.getElementById('btn-save-poly').onclick = savePolygon;
-
-
-document.getElementById('btn-cancel-draw').onclick = cancelDraw;
-document.getElementById('btn-new').onclick = openNewForm;
-document.getElementById('detail-back').onclick = closeDetail;
-document.getElementById('btn-cancelar').onclick = () => closeForm(true);
-document.getElementById('form-overlay').onclick = e => { if (e.target === e.currentTarget) closeForm(true); };
-
-document.querySelectorAll('.filter-pill').forEach(btn => {
-  btn.onclick = () => {
-    activeFilter = btn.dataset.f;
-    document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderList();
+// EVENTS
+document.getElementById('btn-login').onclick=function(){msalInstance.loginRedirect({scopes:SCOPES});};
+document.getElementById('btn-logout').onclick=function(){msalInstance.logoutRedirect({postLogoutRedirectUri:CONFIG.redirectUri});};
+document.getElementById('btn-draw').onclick=startDraw;
+document.getElementById('btn-save-poly').onclick=savePolygon;
+document.getElementById('btn-cancel-draw').onclick=cancelDraw;
+document.getElementById('btn-new').onclick=openNewForm;
+document.getElementById('detail-back').onclick=closeDetail;
+document.getElementById('btn-cancelar').onclick=function(){closeForm(true);};
+document.getElementById('form-overlay').onclick=function(e){if(e.target===e.currentTarget)closeForm(true);};
+document.querySelectorAll('.filter-pill').forEach(function(btn){
+  btn.onclick=function(){
+    activeFilter=btn.dataset.f;
+    document.querySelectorAll('.filter-pill').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');renderList();
   };
 });
-
-document.getElementById('btn-guardar').onclick = async () => {
-  const nombre = document.getElementById('f-nombre').value.trim();
-  if (!nombre) { toast('El nombre es obligatorio', 'error'); return; }
-  if (!pendingCoords && editingId) {
-    const existing = terrenos.find(t => t.id === editingId);
-    if (existing) pendingCoords = existing.coords;
-  }
-  if (!pendingCoords) { toast('No hay polígono dibujado. Dibuja primero en el mapa.', 'error'); return; }
-  console.log('Guardando con coords:', pendingCoords ? pendingCoords.length + ' puntos' : 'NULL');
-  const fields = {
-    nombre,
-    estado:      document.getElementById('f-estado').value,
-    area:        document.getElementById('f-area').value,
-    precio:      document.getElementById('f-precio').value,
-    propietario: document.getElementById('f-propietario').value,
-    agente:      document.getElementById('f-agente').value,
-    fecha:       document.getElementById('f-fecha').value,
-    notas:       document.getElementById('f-notas').value,
+document.getElementById('btn-guardar').onclick=async function(){
+  var nombre=document.getElementById('f-nombre').value.trim();
+  if(!nombre){toast('El nombre es obligatorio','error');return;}
+  var idToSave=editingId;
+  if(!pendingCoords&&!idToSave){toast('Dibuja primero un polígono','error');return;}
+  if(!pendingCoords&&idToSave){var ex=terrenos.find(function(t){return t.id===idToSave;});if(ex)pendingCoords=ex.coords;}
+  var fields={
+    nombre:nombre,
+    estado:document.getElementById('f-estado').value,
+    area:document.getElementById('f-area').value,
+    precio:document.getElementById('f-precio').value,
+    propietario:document.getElementById('f-propietario').value,
+    agente:document.getElementById('f-agente').value,
+    fecha:document.getElementById('f-fecha').value,
+    notas:document.getElementById('f-notas').value
   };
-  const coordsToSave = pendingCoords;
-  const idToSave = editingId; // capture BEFORE closeForm resets it
+  var coordsToSave=pendingCoords;
   closeForm(false);
-  if (layers['__preview__']) { map.removeLayer(layers['__preview__']); delete layers['__preview__']; }
-  await saveTerreno(fields, coordsToSave, idToSave);
-  pendingCoords = null;
+  if(layers['__preview__']){map.removeLayer(layers['__preview__']);delete layers['__preview__'];}
+  await saveTerreno(fields,coordsToSave,idToSave);
+  pendingCoords=null;
+};
+var sidebarHidden=false;
+document.getElementById('mobile-toggle').onclick=function(){
+  sidebarHidden=!sidebarHidden;
+  document.getElementById('sidebar').classList.toggle('hidden',sidebarHidden);
+  document.getElementById('mobile-toggle').textContent=sidebarHidden?'☰ Lista':'✕ Cerrar';
+  setTimeout(function(){map.invalidateSize();},300);
 };
 
-let sidebarHidden = false;
-document.getElementById('mobile-toggle').onclick = () => {
-  sidebarHidden = !sidebarHidden;
-  document.getElementById('sidebar').classList.toggle('hidden', sidebarHidden);
-  document.getElementById('mobile-toggle').textContent = sidebarHidden ? '☰ Lista' : '✕ Cerrar';
-  setTimeout(() => map.invalidateSize(), 300);
-};
-
-// ══════════════════════════════════════════
-//  BOOT
-// ══════════════════════════════════════════
-(async function boot() {
+// BOOT
+(async function(){
   await msalInstance.initialize();
   await handleRedirect();
-
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length === 0) return; // muestra pantalla de login
-
-  // Usuario autenticado
-  currentUser = accounts[0];
-  const name = currentUser.name || currentUser.username;
-  const initials = name.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
-  document.getElementById('user-avatar').textContent = initials;
-  document.getElementById('user-name').textContent = name;
-
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('topbar').style.display = 'flex';
-  document.getElementById('app').style.display = 'flex';
-
+  var accounts=msalInstance.getAllAccounts();
+  if(!accounts.length)return;
+  currentUser=accounts[0];
+  var name=currentUser.name||currentUser.username;
+  var initials=name.split(' ').map(function(p){return p[0];}).join('').substring(0,2).toUpperCase();
+  document.getElementById('user-avatar').textContent=initials;
+  document.getElementById('user-name').textContent=name;
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('app').style.display='flex';
   initMap();
   await loadTerrenos();
 })();
