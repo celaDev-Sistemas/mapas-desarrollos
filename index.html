@@ -44,8 +44,8 @@ html,body{height:100%;font-family:var(--font);background:var(--surface2);color:v
 .search-row input{flex:1;padding:6px 8px;border:0.5px solid var(--border2);border-radius:7px;font-size:12px;font-family:var(--font);color:var(--text);background:var(--surface2);outline:none;min-width:0;transition:border-color 0.15s}
 .search-row input:focus{border-color:var(--navy);background:var(--surface)}
 #search-clear-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;display:none;flex-shrink:0}
-#search-suggestions{position:fixed;z-index:9000;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius);box-shadow:0 4px 20px rgba(0,0,0,0.18);max-height:260px;overflow-y:auto;display:none}
-#search-suggestions.open{display:block}
+#search-suggestions{position:fixed;z-index:99999;background:#ffffff;border:2px solid #0f3d6e;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.25);max-height:260px;overflow-y:auto;display:none;min-width:200px}
+#search-suggestions.open{display:block!important}
 .suggestion-item{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:0.5px solid var(--border);transition:background 0.1s}
 .suggestion-item:last-child{border-bottom:none}
 .suggestion-item:hover,.suggestion-item.active{background:var(--surface2)}
@@ -611,7 +611,7 @@ document.getElementById('search-input').addEventListener('keydown',function(e){
   else if(e.key==='Enter'&&activeSuggestion>=0&&items[activeSuggestion]){items[activeSuggestion].dispatchEvent(new MouseEvent('mousedown'));}
   else if(e.key==='Escape'){this.value='';document.getElementById('search-clear-btn').style.display='none';document.getElementById('search-mode-icon').textContent='🔍';hideSuggestions();if(searchPin){map.removeLayer(searchPin);searchPin=null;}}
 });
-document.getElementById('search-input').addEventListener('blur',function(){setTimeout(hideSuggestions,180);});
+document.getElementById('search-input').addEventListener('blur',function(){setTimeout(hideSuggestions,300);});
 document.getElementById('search-clear-btn').onclick=function(){
   document.getElementById('search-input').value='';
   document.getElementById('search-clear-btn').style.display='none';
@@ -620,6 +620,7 @@ document.getElementById('search-clear-btn').onclick=function(){
 };
 
 function fetchPhoton(query){
+  console.log('fetchPhoton called:', query);
   // Try 1: with Honduras location bias
   var url1='https://photon.komoot.io/api/?q='+encodeURIComponent(query)
     +'&limit=6&lang=es&lat=14.1&lon=-87.2&zoom=6';
