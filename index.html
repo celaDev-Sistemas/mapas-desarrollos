@@ -620,42 +620,19 @@ document.getElementById('search-clear-btn').onclick=function(){
 };
 
 function fetchPhoton(query){
-  console.log('fetchPhoton called:', query);
-  // Try 1: with Honduras location bias
-  var url1='https://photon.komoot.io/api/?q='+encodeURIComponent(query)
-    +'&limit=6&lang=es&lat=14.1&lon=-87.2&zoom=6';
-  fetch(url1)
+  // Photon correct API: only q and limit are valid params
+  var url='https://photon.komoot.io/api/?q='+encodeURIComponent(query)+'&limit=6';
+  fetch(url)
     .then(function(r){return r.json();})
     .then(function(data){
       if(data.features&&data.features.length){
-        showSuggestions(data.features);
-      } else {
-        // Try 2: without location bias
-        fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(query)+'&limit=5&lang=es')
-          .then(function(r){return r.json();})
-          .then(function(d){if(d.features&&d.features.length)showSuggestions(d.features);})
-          .catch(function(){});
+        // Sort: prefer Honduras results first
+        var hn=data.features.filter(function(f){return (f.properties.country||'').toLowerCase().includes('hond');});
+        var others=data.features.filter(function(f){return !(f.properties.country||'').toLowerCase().includes('hond');});
+        showSuggestions(hn.length?hn:others.slice(0,5));
       }
     })
-    .catch(function(){
-      // Try 3: Nominatim as fallback with proper headers
-      var url3='https://nominatim.openstreetmap.org/search?q='
-        +encodeURIComponent(query+', Honduras')
-        +'&format=json&limit=5&accept-language=es&addressdetails=1';
-      fetch(url3,{headers:{'Accept-Language':'es'}})
-        .then(function(r){return r.json();})
-        .then(function(data){
-          if(!data.length)return;
-          var features=data.map(function(r){
-            return{
-              geometry:{coordinates:[parseFloat(r.lon),parseFloat(r.lat)]},
-              properties:{name:r.display_name.split(',')[0],city:r.display_name.split(',')[1]||'',country:'Honduras',osm_value:r.type}
-            };
-          });
-          showSuggestions(features);
-        })
-        .catch(function(){});
-    });
+    .catch(function(e){console.error('Photon error:',e);});
 }
 
 function showSuggestions(features){
