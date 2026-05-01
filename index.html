@@ -362,14 +362,15 @@ async function saveTerreno(fields,coords,forcedId){
     bf[col('Area')]=fields.area?parseFloat(fields.area):null;
     bf[col('Precio')]=fields.precio?parseFloat(fields.precio):null;
     bf[col('Propietario')]=fields.propietario||null;
-    var agenteColName=col('Agentes');
-    console.log('Agente col name:', agenteColName, '| value:', fields.agente);
-    console.log('Full colMap:', JSON.stringify(colMap));
-    bf[agenteColName]=fields.agente||null;
+    bf[col('Agentes')]=fields.agente||null;
     bf[col('Fecha')]=fields.fecha?fields.fecha+'T00:00:00Z':null;
     bf[col('Notas')]=fields.notas||null;
     bf[col('Coordenadas')]=cs;
-    if(currentUser)bf[col('Usuario')]=currentUser.name||currentUser.username||'';
+    // Save login user - find correct internal name (not same as Agentes)
+    var usuarioKey = colMap['Usuario'] || colMap['usuario'] || null;
+    if(currentUser && usuarioKey && usuarioKey !== col('Agentes')){
+      bf[usuarioKey]=currentUser.name||currentUser.username||'';
+    }
     var body={fields:bf};
     if(forcedId){
       await gFetch('/sites/'+siteId+'/lists/'+listId+'/items/'+forcedId,'PATCH',body);
