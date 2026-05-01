@@ -362,7 +362,10 @@ async function saveTerreno(fields,coords,forcedId){
     bf[col('Area')]=fields.area?parseFloat(fields.area):null;
     bf[col('Precio')]=fields.precio?parseFloat(fields.precio):null;
     bf[col('Propietario')]=fields.propietario||null;
-    bf[col('Agentes')]=fields.agente||null;
+    var agenteColName=col('Agentes');
+    console.log('Agente col name:', agenteColName, '| value:', fields.agente);
+    console.log('Full colMap:', JSON.stringify(colMap));
+    bf[agenteColName]=fields.agente||null;
     bf[col('Fecha')]=fields.fecha?fields.fecha+'T00:00:00Z':null;
     bf[col('Notas')]=fields.notas||null;
     bf[col('Coordenadas')]=cs;
@@ -611,7 +614,14 @@ document.getElementById('search-input').addEventListener('keydown',function(e){
   else if(e.key==='Enter'&&activeSuggestion>=0&&items[activeSuggestion]){items[activeSuggestion].dispatchEvent(new MouseEvent('mousedown'));}
   else if(e.key==='Escape'){this.value='';document.getElementById('search-clear-btn').style.display='none';document.getElementById('search-mode-icon').textContent='🔍';hideSuggestions();if(searchPin){map.removeLayer(searchPin);searchPin=null;}}
 });
-document.getElementById('search-input').addEventListener('blur',function(){setTimeout(hideSuggestions,300);});
+// suggestions hidden by outside click only
+// Hide suggestions when clicking outside
+document.addEventListener('click',function(e){
+  var bar=document.getElementById('search-bar');
+  var sugg=document.getElementById('search-suggestions');
+  if(!bar.contains(e.target)&&!sugg.contains(e.target)){hideSuggestions();}
+});
+
 document.getElementById('search-clear-btn').onclick=function(){
   document.getElementById('search-input').value='';
   document.getElementById('search-clear-btn').style.display='none';
