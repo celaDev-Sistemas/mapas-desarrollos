@@ -168,7 +168,6 @@ textarea.f-input{resize:none;height:60px}
           <input id="search-input" type="text" placeholder="Ciudad, lugar o lat, lng..." autocomplete="off"/>
           <button id="search-clear-btn">✕</button>
         </div>
-        <div id="search-suggestions"></div>
       </div>
       <div id="stats-row">
         <div class="stat-cell s-green"><div class="stat-num" id="cnt-c">0</div><div class="stat-lbl">Comprados</div></div>
@@ -764,5 +763,6 @@ document.getElementById('mobile-toggle').onclick=function(){
   await loadTerrenos();
 })();
 </script>
+<div id="search-suggestions"></div>
 </body>
 </html>
