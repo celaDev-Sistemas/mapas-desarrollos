@@ -621,15 +621,45 @@ document.getElementById('search-clear-btn').onclick=function(){
 };
 
 function fetchPhoton(query){
-  fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(query)+'&limit=6&lang=es&bbox=-92.0,13.0,-83.0,16.5')
+  // Try 1: with Honduras location bias
+  var url1='https://photon.komoot.io/api/?q='+encodeURIComponent(query)
+    +'&limit=6&lang=es&lat=14.1&lon=-87.2&zoom=6';
+  fetch(url1)
     .then(function(r){return r.json();})
     .then(function(data){
-      if(data.features&&data.features.length){showSuggestions(data.features);}
-      else{fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(query)+'&limit=5&lang=es').then(function(r){return r.json();}).then(function(d){if(d.features&&d.features.length)showSuggestions(d.features);}).catch(function(){});}
-    }).catch(function(){});
+      if(data.features&&data.features.length){
+        showSuggestions(data.features);
+      } else {
+        // Try 2: without location bias
+        fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(query)+'&limit=5&lang=es')
+          .then(function(r){return r.json();})
+          .then(function(d){if(d.features&&d.features.length)showSuggestions(d.features);})
+          .catch(function(){});
+      }
+    })
+    .catch(function(){
+      // Try 3: Nominatim as fallback with proper headers
+      var url3='https://nominatim.openstreetmap.org/search?q='
+        +encodeURIComponent(query+', Honduras')
+        +'&format=json&limit=5&accept-language=es&addressdetails=1';
+      fetch(url3,{headers:{'Accept-Language':'es'}})
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if(!data.length)return;
+          var features=data.map(function(r){
+            return{
+              geometry:{coordinates:[parseFloat(r.lon),parseFloat(r.lat)]},
+              properties:{name:r.display_name.split(',')[0],city:r.display_name.split(',')[1]||'',country:'Honduras',osm_value:r.type}
+            };
+          });
+          showSuggestions(features);
+        })
+        .catch(function(){});
+    });
 }
 
 function showSuggestions(features){
+  console.log('showSuggestions called with', features.length, 'results');
   var el=document.getElementById('search-suggestions');
   el.innerHTML='';activeSuggestion=-1;
   if(!features.length){hideSuggestions();return;}
