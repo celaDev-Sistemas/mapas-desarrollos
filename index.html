@@ -357,20 +357,19 @@ async function saveTerreno(fields,coords,forcedId){
     await getSiteAndList();
     var cs=coords?JSON.stringify(coords):'';
     var bf={Title:fields.nombre};
+    console.log('=== SAVE START === forcedId:', forcedId);
     bf[col('Nombre')]=fields.nombre;
     bf[col('Estado')]=fields.estado;
     bf[col('Area')]=fields.area?parseFloat(fields.area):null;
     bf[col('Precio')]=fields.precio?parseFloat(fields.precio):null;
     bf[col('Propietario')]=fields.propietario||null;
-    bf[col('Agentes')]=fields.agente||null;
+    // Direct internal name - bypasses colMap
+    bf['Usuario']=fields.agente||null;
     bf[col('Fecha')]=fields.fecha?fields.fecha+'T00:00:00Z':null;
     bf[col('Notas')]=fields.notas||null;
     bf[col('Coordenadas')]=cs;
-    // Save login user - find correct internal name (not same as Agentes)
-    var usuarioKey = colMap['Usuario'] || colMap['usuario'] || null;
-    if(currentUser && usuarioKey && usuarioKey !== col('Agentes')){
-      bf[usuarioKey]=currentUser.name||currentUser.username||'';
-    }
+    // Usuario (login) not saved separately to avoid overwriting Agente
+    console.log('=== FULL BODY TO SAVE:', JSON.stringify(bf));
     var body={fields:bf};
     if(forcedId){
       await gFetch('/sites/'+siteId+'/lists/'+listId+'/items/'+forcedId,'PATCH',body);
