@@ -372,7 +372,8 @@ async function loadTerrenos(){
         area:isNaN(area)?'':area,
         precio:isNaN(precio)?'':precio,
         propietario:f[col('Propietario')]||f['Propietario']||'',
-        agente:f[col('Agentes')]||f['Agentes']||f[col('Agente')]||f['Agente']||'',
+                agente:      (colMap['Agentes']?f[colMap['Agentes']]:null)||f['Usuario']||'',
+        ciudad:      (colMap['Ciudad']?f[colMap['Ciudad']]:null)||f['Ciudad']||'',
         fecha:(f[col('Fecha')]||f['Fecha'])?(f[col('Fecha')]||f['Fecha']).split('T')[0]:'',
         notas:f[col('Notas')]||f['Notas']||'',
         coordsRaw:cr,coords:coords
