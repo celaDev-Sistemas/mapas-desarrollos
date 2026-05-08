@@ -205,7 +205,7 @@ textarea.f-input{resize:none;height:60px}
         <button class="filter-pill" data-f="descartado">Descartados</button>
       </div>
       <div id="ciudad-filter-bar">
-        <input id="filter-ciudad" type="text" placeholder="🏙 Filtrar por ciudad..." autocomplete="off"/>
+        <input id="filter-ciudad" type="text" placeholder="🔎 Filtrar por ciudad o nombre..." autocomplete="off"/>
         <button id="filter-ciudad-clear" style="display:none">✕</button>
       </div>
       <div id="terreno-list"></div>
@@ -357,7 +357,7 @@ async function loadTerrenos(){
   showLoading(true);
   try{
     await getSiteAndList();
-    var data=await gFetch('/sites/'+siteId+'/lists/'+listId+'/items?expand=fields&$top=500');
+    var data=await gFetch('/sites/'+siteId+'/lists/'+listId+'/items?expand=fields($select=Title,Nombre,Estado,Area,Precio,Propietario,Fecha,Notas,Coordenadas,Usuario,Ciudad,Agentes,Agente,id)&$top=500');
     terrenos=data.value.map(function(item){
       var f=item.fields;
       var cr=f[col('Coordenadas')]||f['Coordenadas']||'';
@@ -372,7 +372,7 @@ async function loadTerrenos(){
         area:isNaN(area)?'':area,
         precio:isNaN(precio)?'':precio,
         propietario:f[col('Propietario')]||f['Propietario']||'',
-                agente:      (colMap['Agentes']?f[colMap['Agentes']]:null)||f['Usuario']||'',
+        agente:f[colMap['Agentes']]||f[colMap['Agente']]||f['Usuario']||f['Agentes']||f['Agente']||'',
         ciudad:      (colMap['Ciudad']?f[colMap['Ciudad']]:null)||f['Ciudad']||'',
         fecha:(f[col('Fecha')]||f['Fecha'])?(f[col('Fecha')]||f['Fecha']).split('T')[0]:'',
         notas:f[col('Notas')]||f['Notas']||'',
@@ -466,7 +466,12 @@ function renderList(){
   el.innerHTML='';
   var filtered=terrenos;
   if(activeFilter!=='todos') filtered=filtered.filter(function(t){return t.estado===activeFilter;});
-  if(ciudadFilter) filtered=filtered.filter(function(t){return (t.ciudad||'').toLowerCase().includes(ciudadFilter.toLowerCase());});
+  if(ciudadFilter){
+    var q=ciudadFilter.toLowerCase();
+    filtered=filtered.filter(function(t){
+      return (t.ciudad||'').toLowerCase().includes(q)||(t.nombre||'').toLowerCase().includes(q);
+    });
+  }
   if(!filtered.length){empty.style.display='block';return;}
   empty.style.display='none';
   filtered.forEach(function(t){
