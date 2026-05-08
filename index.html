@@ -345,7 +345,10 @@ async function getSiteAndList(){
   listId=ls.value[0].id;
   var cols=await gFetch('/sites/'+siteId+'/lists/'+listId+'/columns');
   cols.value.forEach(function(c){colMap[c.displayName]=c.name;});
-  console.log('colMap',colMap);
+  console.log('=== FULL COLUMN MAP ===');
+  cols.value.forEach(function(c){
+    if(!c.readOnly) console.log('Display:', c.displayName, '| Internal:', c.name, '| Type:', c.text?'text':c.number?'number':c.dateTime?'date':'other');
+  });
 }
 function col(n){return colMap[n]||n;}
 
@@ -394,10 +397,14 @@ async function saveTerreno(fields,coords,forcedId){
     bf[col('Area')]=fields.area?parseFloat(fields.area):null;
     bf[col('Precio')]=fields.precio?parseFloat(fields.precio):null;
     bf[col('Propietario')]=fields.propietario||null;
-    // Try all possible internal names for Agente column
-    var agKey = colMap['Agentes'] || colMap['Agente'] || 'Usuario';
-    bf[agKey] = fields.agente || null;
-    console.log('Saving agente with key:', agKey, '=', fields.agente);
+    // Use exact internal name from colMap
+    var agKey = colMap['Agentes'] || colMap['Agente'] || colMap['Usuario'];
+    if(agKey) bf[agKey] = fields.agente || null;
+    // Also try Ciudad
+    var cidKey = colMap['Ciudad'];
+    if(cidKey) bf[cidKey] = fields.ciudad || null;
+    // Remove duplicate Ciudad save below
+    console.log('agKey:', agKey, 'cidKey:', cidKey);
     bf[col('Fecha')]=fields.fecha?fields.fecha+'T00:00:00Z':null;
     bf[col('Notas')]=fields.notas||null;
     bf[col('Coordenadas')]=cs;
